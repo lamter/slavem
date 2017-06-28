@@ -1,2 +1,2 @@
-arrow
-pandas
+requests
+pymongo

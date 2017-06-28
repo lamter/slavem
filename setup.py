@@ -8,26 +8,26 @@ def read(fname):
         return f.read()
 
 
-__version__ = "2016.12.4"
+__version__ = "0.0.1"
 
 setup(
-    name='tradingtime',
+    name='slavem',
     version=__version__,
-    keywords='tradingtime',
-    description=u'证券市场交易日历',
+    keywords='slavem',
+    description=u'监控全网服务的服务',
     long_description=read("README.md"),
 
-    url='https://github.com/lamter/tradingtime',
+    url='https://github.com/lamter/slavem',
     author='lamter',
     author_email='lamter.fu@gmail.com',
 
     packages=find_packages(),
     package_data={
-        "tradingtime": ["*.json"],
     },
     install_requires=read("requirements.txt").splitlines(),
     classifiers=[
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: MIT License'],
 )
