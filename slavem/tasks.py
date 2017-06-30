@@ -65,13 +65,16 @@ class Task(object):
         :param report:  dict()
         :return:
         """
-        if self.name == report['name'] \
-                and self.type == report['type'] \
-                and self.lanuchTime <= report['lanuch'] <= self.deadline:
+        if self.name != report['name']:
+            return False
+        if self.type != report['type']:
+            return False
+
+        if self.lanuchTime <= report['datetime'] <= self.deadline:
+            return True
+        else:
             return True
 
-        else:
-            return False
 
     def finishAndRefresh(self):
         """
@@ -80,6 +83,7 @@ class Task(object):
         """
         self.refreshDeadline()
         self.isLate = False
+
 
     def delayDeadline(self, seconds=60):
         """
@@ -91,3 +95,11 @@ class Task(object):
 
     def setLate(self):
         self.isLate = True
+
+
+    def toNotice(self):
+        """
+
+        :return:
+        """
+        return self.__dict__.copy()
