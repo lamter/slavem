@@ -9,7 +9,7 @@ import pymongo
 import datetime
 import requests
 
-import tasks
+from .tasks import Task
 
 __all__ = [
     'Monitor'
@@ -233,7 +233,7 @@ class Monitor(object):
         taskList = []
         for t in taskCol.find():
             t.pop('_id')
-            taskList.append(tasks.Task(**t))
+            taskList.append(Task(**t))
 
         self.tasks = taskList
         self.log.info(u'加载了 {} 个任务'.format(len(self.tasks)))
@@ -269,7 +269,7 @@ class Monitor(object):
         firstLanuchTime = None
         now = datetime.datetime.now()
         for t in self.tasks:
-            assert isinstance(t, tasks.Task)
+            assert isinstance(t, Task)
             if now >= t.deadline:
                 taskList.append(t)
                 try:
@@ -366,7 +366,7 @@ class Monitor(object):
         :param kwargs:
         :return:
         """
-        t = tasks.Task(**kwargs)
+        t = Task(**kwargs)
 
         dic = t.toMongoDB()
         self.db.task.insert_one(dic)
