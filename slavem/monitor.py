@@ -358,3 +358,24 @@ class Monitor(object):
                 time.sleep(10)
 
             self.log.info(u'向 {} 发送信息 '.format(account))
+
+
+    def createTask(self, **kwargs):
+        """
+        创建任务
+        :param kwargs:
+        :return:
+        """
+        t = tasks.Task(**kwargs)
+
+        dic = t.toMongoDB()
+        self.db.task.insert_one(dic)
+        self.log.info(u'创建了task {}'.format(str(dic)) )
+
+    def showTask(self):
+        """
+
+        :return:
+        """
+        for t in self.tasks:
+            print(t.toMongoDB())

@@ -10,11 +10,13 @@
 ```json
 {
   "host": "localhost",
-  "port": 27017,
+  "port": 30020,
   "dbn": "slavem",
-  "serverChan": [
-    "SCU3933Tab181d054223a5d94711915b357cd8c5582e9d81cbc5b"
-  ]
+  "username": "slavem",
+  "password": "slavem",
+  "serverChan": {
+    "lamter": "serverChan_SDTOKEN"
+  },
 }
 ```
 
@@ -29,4 +31,43 @@ monitor = slavem.Monitor(
 )
 monitor.start()
 
+```
+
+## 任务
+### 创建任务
+```python
+
+import slavem
+import json
+
+settingPath = './slavem_setting.json'
+with open(settingPath, 'r') as f:
+    kwarg = json.load(f)
+
+monitor = slavem.Monitor(**kwarg)
+
+taskKwargs = {
+    'name': 'serverName', # 可以重复
+    'type': 'serverType',
+    'lanuch': '20:50:00', # 启动时刻
+    'delay': 5,  # min 启动后 delay 分钟后查看启动结果
+    'host': 'localhost', # 服务所在的 host
+}
+
+monitor.createTask(**taskKwargs)
+monitor.stop()
+```
+
+### 查看任务
+```python
+import slavem
+import json
+
+settingPath = './slavem_setting.json'
+with open(settingPath, 'r') as f:
+    kwarg = json.load(f)
+
+monitor = slavem.Monitor(**kwarg)
+monitor.showTask()
+monitor.stop()
 ```

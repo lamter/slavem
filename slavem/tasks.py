@@ -1,24 +1,50 @@
 # coding:utf-8
 
 import datetime
-
+import logging
 
 class Task(object):
     """
     定时任务实例
     """
 
-    def __init__(self, name, type, lanuch, delay):
+    def __init__(self, name, type, lanuch, delay, host):
+        """
+
+        :param name: 服务名，可重复
+        :param type:
+        :param lanuch:
+        :param delay:
+        """
+        # 需要保存到MongoDB的参数
         self.name = name
         self.type = type
         self.lanuch = datetime.datetime.strptime(lanuch, '%H:%M:%S').time()
         self.delay = delay  # min
+        self.host = host
+        # ====================
+
+        self.log = logging.getLogger('slavem')
 
         self.lanuchTime = datetime.datetime.now()
         self.deadline = datetime.datetime.now()
         self.refreshDeadline()
 
         self.isLate = False
+
+    def toMongoDB(self):
+        """
+        生成用于保存到 MongoDB 的任务
+        :return:
+        """
+        dic = {
+            'name': self.name,
+            'type': self.type,
+            'lanuch': self.lanuch.strftime('%H:%M:%S'),
+            'delay': self.delay,  # min
+            'host': self.host,
+        }
+        return dic
 
     def __str__(self):
         s = super(Task, self).__str__()
@@ -69,12 +95,12 @@ class Task(object):
             return False
         if self.type != report['type']:
             return False
-
+        if self.host != report['host']:
+            return False
         if self.lanuchTime <= report['datetime'] <= self.deadline:
             return True
         else:
             return True
-
 
     def finishAndRefresh(self):
         """
@@ -84,7 +110,6 @@ class Task(object):
         self.refreshDeadline()
         self.isLate = False
 
-
     def delayDeadline(self, seconds=60):
         """
         没有收到汇报,推迟 deadline
@@ -92,10 +117,8 @@ class Task(object):
         """
         self.deadline += datetime.timedelta(seconds=seconds)
 
-
     def setLate(self):
         self.isLate = True
-
 
     def toNotice(self):
         """
