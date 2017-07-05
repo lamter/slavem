@@ -2,7 +2,7 @@
 import json
 import slavem
 
-settingPath = './slavem_setting.json'
+settingPath = './conf/slavem_setting.json'
 with open(settingPath, 'r') as f:
     kwarg = json.load(f)
 
