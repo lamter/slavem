@@ -14,9 +14,6 @@
   "dbn": "slavem",
   "username": "slavem",
   "password": "slavem",
-  "serverChan": {
-    "lamter": "serverChan_SDTOKEN"
-  },
 }
 ```
 
