@@ -1,0 +1,59 @@
+{
+  "host": "localhost",
+  "port": 30020,
+  "dbn": "slavem",
+  "username": "slavem",
+  "password": "slavem",
+  "serverChan": {
+    "lamter": "serverChan_SDTOKEN"
+  },
+
+
+
+
+  "loggingconf": {
+    "version": 1,
+    "formatters": {
+      "simple": {
+        "format": "%(asctime)-15s %(levelname)s %(filename)s %(lineno)d %(process)d %(message)s"
+      }
+    },
+    "handlers": {
+      "console": {
+        "class": "logging.StreamHandler",
+        "level": "DEBUG",
+        "formatter": "simple"
+      },
+      "file": {
+        "class": "logging.FileHandler",
+        "filename": "./slavem.log",
+        "level": "DEBUG",
+        "formatter": "simple"
+      },
+      "mongo": {
+        "class": "log4mongo.handlers.MongoHandler",
+        "host": "localhost",
+        "port": 27017,
+        "database_name": "log",
+        "collection": "slavem",
+        "level": "INFO"
+      }
+    },
+    "loggers": {
+      "root": {
+        "handlers": [
+          "console"
+        ],
+        "level": "DEBUG",
+        "propagate": true
+      },
+      "slavem": {
+        "handlers": [
+          "console",
+          "mongo"
+        ],
+        "level": "DEBUG"
+      }
+    }
+  }
+}
