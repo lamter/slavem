@@ -69,6 +69,8 @@ class Monitor(object):
                     ]:
             signal.signal(sig, self.shutdown)
 
+        self.authed = False
+
         # 初始化
         self.init()
 
@@ -82,11 +84,13 @@ class Monitor(object):
             # log4mongo 的bug导致使用非admin用户时，建立会报错。
             # 这里使用注入的方式跳过会报错的代码
             log4mongo.handlers._connection = pymongo.MongoClient(
-                host=loggingconf['mongo']['host'],
-                port=loggingconf['mongo']['port'],
+                host=loggingconf['handlers']['mongo']['host'],
+                port=loggingconf['handlers']['mongo']['port'],
             )
+
             logging.config.dictConfig(loggingconf)
             self.log = logging.getLogger(self.name)
+
         else:
             self.log = logging.getLogger()
             self.log.setLevel('DEBUG')
@@ -127,13 +131,18 @@ class Monitor(object):
             self.mongoclient.server_info()
         except:
             # 重新链接
+            self.mongoclient = pymongo.MongoClient(
+                host=self.mongoSetting['host'],
+                port=self.mongoSetting['port']
+            )
             if self.mongoSetting.get('username'):
-                self.mongoclient = pymongo.MongoClient(self.mongourl)
-            else:
-                self.mongoclient = pymongo.MongoClient(
-                    host=self.mongoSetting['host'],
-                    port=self.mongoSetting['port']
+                # self.mongoclient = pymongo.MongoClient(self.mongourl)
+                self.authed = self.db.authenticate(
+                    self.mongoSetting['username'],
+                    self.mongoSetting['password']
                 )
+
+
 
     def init(self):
         """
@@ -224,11 +233,11 @@ class Monitor(object):
         :return:
         """
         try:
+            if self.authed:
+                self.db.logout()
             self.mongoclient.close()
         except:
             pass
-        finally:
-            self.log.info(u"关闭 MongoDB 链接……")
 
     def loadTask(self):
         """
