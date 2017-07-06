@@ -1,4 +1,3 @@
-# encoding:utf-8
 import sys
 import signal
 import logging.config
@@ -72,6 +71,7 @@ class Monitor(object):
         self.authed = False
 
         # 初始化
+
         self.init()
 
     def initLog(self, loggingconf):
