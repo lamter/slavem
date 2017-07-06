@@ -8,6 +8,7 @@ import traceback
 import pymongo
 import datetime
 import requests
+import log4mongo.handlers
 
 from .tasks import Task
 
@@ -78,6 +79,12 @@ class Monitor(object):
         :return:
         """
         if loggingconf:
+            # log4mongo 的bug导致使用非admin用户时，建立会报错。
+            # 这里使用注入的方式跳过会报错的代码
+            log4mongo.handlers._connection = pymongo.MongoClient(
+                host=loggingconf['mongo']['host'],
+                port=loggingconf['mongo']['port'],
+            )
             logging.config.dictConfig(loggingconf)
             self.log = logging.getLogger(self.name)
         else:
