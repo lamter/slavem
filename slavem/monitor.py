@@ -166,10 +166,17 @@ class Monitor(object):
 
         :return:
         """
-        # 阻塞等待直到下次任务时间
-        self.watiWatchTime()
+        # 下次任务时间
+        self.reportWatchTime()
 
         while self.__active:
+            now = datetime.datetime.now()
+            if now < self.nextWatchTime:
+                time.sleep(1)
+                continue
+
+            self.log.info(u'达到截止时间')
+
             # 检查任务
             self.checkTask()
 
@@ -179,12 +186,12 @@ class Monitor(object):
             # 最后更新任务时间
             self.refreshWatchTime()
 
-            # 阻塞等待直到下次任务时间
-            self.watiWatchTime()
+            # 下次任务时间
+            self.reportWatchTime()
 
-    def watiWatchTime(self):
+    def reportWatchTime(self):
         """
-        阻塞等待直到下次任务的时间
+        下次任务的时间
         :return:
         """
         now = datetime.datetime.now()
@@ -192,8 +199,8 @@ class Monitor(object):
             # 还没到观察下一个任务的时间
             rest = self.nextWatchTime - now
             self.log.info(u'下次截止时间 {}'.format(self.nextWatchTime))
-            time.sleep(rest.total_seconds())
-            self.log.info(u'达到截止时间')
+            # time.sleep(rest.total_seconds())
+            # self.log.info(u'达到截止时间')
 
     def start(self):
         """
@@ -203,8 +210,9 @@ class Monitor(object):
         self.__active = True
         try:
             self._run()
-        except:
-            self.log.critical(traceback.format_exc())
+        except Exception as e:
+            print(e.message)
+            self.log.critical(e.message)
             self.stop()
 
     def stop(self):
