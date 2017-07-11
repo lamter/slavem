@@ -142,8 +142,6 @@ class Monitor(object):
                     self.mongoSetting['password']
                 )
 
-
-
     def init(self):
         """
         初始化服务
@@ -383,18 +381,20 @@ class Monitor(object):
 
             self.log.info(u'向 {} 发送信息 '.format(account))
 
-
     def createTask(self, **kwargs):
         """
         创建任务
         :param kwargs:
         :return:
         """
-        t = Task(**kwargs)
+        newTask = Task(**kwargs)
 
-        dic = t.toMongoDB()
-        self.db.task.insert_one(dic)
-        self.log.info(u'创建了task {}'.format(str(dic)) )
+        sql = newTask.toSameTaskKV()
+        dic = newTask.toMongoDB()
+
+        self.db.task.update_one(sql, {'$set': dic}, upsert=True)
+        # self.db.task.find_one_and_update(sql, {'$set': dic}, upsert=True)
+        self.log.info(u'创建了task {}'.format(str(dic)))
 
     def showTask(self):
         """

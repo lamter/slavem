@@ -1,25 +1,20 @@
 import datetime
 import logging
 
+
 class Task(object):
     """
     定时任务实例
     """
 
-    def __init__(self, name, type, lanuch, delay, host):
-        """
-
-        :param name: 服务名，可重复
-        :param type:
-        :param lanuch:
-        :param delay:
-        """
+    def __init__(self, name, type, lanuch, delay, host, des):
         # 需要保存到MongoDB的参数
         self.name = name
         self.type = type
         self.lanuch = datetime.datetime.strptime(lanuch, '%H:%M:%S').time()
         self.delay = delay  # min
         self.host = host
+        self.des = des  # 备注描述
         # ====================
 
         self.log = logging.getLogger('slavem')
@@ -41,6 +36,7 @@ class Task(object):
             'lanuch': self.lanuch.strftime('%H:%M:%S'),
             'delay': self.delay,  # min
             'host': self.host,
+            'des': self.des,
         }
         return dic
 
@@ -124,3 +120,13 @@ class Task(object):
         :return:
         """
         return self.__dict__.copy()
+
+    def toSameTaskKV(self):
+        return {
+            'name': self.name,
+            'type': self.type,
+            'lanuch': self.lanuch.strftime('%H:%M:%S'),
+        }
+
+    def __eq__(self, other):
+        return self.toSameTaskKV() == other.toSameTaskKV()
