@@ -309,13 +309,17 @@ class Monitor(object):
                 '$gte': firstLanuchTime,
             }
         }
+
         reportCol = self.db[self.reportCollectionName]
         cursor = reportCol.find(sql)
+
+        if __debug__:
+            self.log.debug(u'查询到 {} 条报告'.format(cursor.count()))
 
         # 核对启动报告
         for report in cursor:
             for t in taskList:
-                # assert isinstance(t, tasks.Task)
+                assert isinstance(t, Task)
                 if t.isReport(report):
                     # 完成了，刷新deadline
                     self.log.info(u'{} 服务启动完成 {}'.format(t.name, t.lanuchTime))

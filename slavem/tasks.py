@@ -85,16 +85,24 @@ class Task(object):
         :param report:  dict()
         :return:
         """
+
         if self.name != report['name']:
-            return False
-        if self.type != report['type']:
-            return False
-        if self.host != report['host']:
-            return False
-        if self.lanuchTime <= report['datetime'] <= self.deadline:
-            return True
+            r, diff = False, 'name'
+        elif self.type != report['type']:
+            r, diff = False, 'type'
+        elif self.host != report['host']:
+            r, diff = False, 'host'
+        elif self.lanuchTime > report['datetime'] or report['datetime'] > self.deadline:
+            r, diff = False, 'datetime'
         else:
-            return True
+            r, diff = True, None
+
+        if __debug__ and not r:
+            rv = report[diff]
+            sv = getattr(self, diff)
+            self.log.debug(u'报告 {sv} 不匹配 {rv}'.format(sv=sv, rv=rv))
+
+        return r
 
     def finishAndRefresh(self):
         """
