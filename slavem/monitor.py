@@ -259,6 +259,10 @@ class Monitor(object):
 
         self.tasks = taskList
         self.log.info(u'加载了 {} 个任务'.format(len(self.tasks)))
+        if __debug__:
+            for t in self.tasks:
+                self.log.debug(str(t))
+
 
     def sortTask(self):
         """
