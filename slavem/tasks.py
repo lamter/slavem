@@ -7,7 +7,7 @@ class Task(object):
     定时任务实例
     """
 
-    def __init__(self, name, type, lanuch, delay, host, des):
+    def __init__(self, name, type, lanuch, delay, host, des, off):
         # 需要保存到MongoDB的参数
         self.name = name
         self.type = type
@@ -15,7 +15,7 @@ class Task(object):
         self.delay = delay  # min
         self.host = host
         self.des = des  # 备注描述
-        self.off = False
+        self.off = off
         # ====================
 
         self.log = logging.getLogger('slavem')

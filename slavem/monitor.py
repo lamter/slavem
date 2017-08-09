@@ -57,6 +57,7 @@ class Monitor(object):
             **self.mongoSetting)
 
         self.__active = False
+        self._inited = False
 
         # 下次查看是否已经完成任务的时间
         self.nextWatchTime = datetime.datetime.now()
@@ -70,9 +71,6 @@ class Monitor(object):
 
         self.authed = False
 
-        # 初始化
-
-        self.init()
 
     def initLog(self, loggingconf):
         """
@@ -147,6 +145,8 @@ class Monitor(object):
         初始化服务
         :return:
         """
+        self._inited = True
+
         # 建立数据库链接
         self.dbConnect()
 
@@ -204,6 +204,8 @@ class Monitor(object):
 
         :return:
         """
+        self.init()
+
         self.__active = True
         try:
             self._run()
@@ -253,7 +255,7 @@ class Monitor(object):
         taskCol = self.db[self.taskCollectionName]
         taskList = []
         for t in taskCol.find():
-            if t['off']:
+            if t.get('off'):
                 continue
             t.pop('_id')
             taskList.append(Task(**t))
