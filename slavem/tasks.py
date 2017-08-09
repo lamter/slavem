@@ -15,6 +15,7 @@ class Task(object):
         self.delay = delay  # min
         self.host = host
         self.des = des  # 备注描述
+        self.off = False
         # ====================
 
         self.log = logging.getLogger('slavem')

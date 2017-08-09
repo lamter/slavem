@@ -186,7 +186,6 @@ class Monitor(object):
 
             # 下次任务时间
             self.reportWatchTime()
-
     def reportWatchTime(self):
         """
         下次任务的时间
@@ -254,6 +253,8 @@ class Monitor(object):
         taskCol = self.db[self.taskCollectionName]
         taskList = []
         for t in taskCol.find():
+            if t['off']:
+                continue
             t.pop('_id')
             taskList.append(Task(**t))
 
