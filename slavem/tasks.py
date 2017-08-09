@@ -38,6 +38,7 @@ class Task(object):
             'delay': self.delay,  # min
             'host': self.host,
             'des': self.des,
+            'off': self.off,
         }
         return dic
 
