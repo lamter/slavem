@@ -17,6 +17,7 @@ class Task(object):
         self.des = des  # 备注描述
         self.off = off
         # ====================
+        self.toMongoDbArgs = ['name', 'type', 'lanuch', 'delay', 'host', 'des', 'off']
 
         self.log = logging.getLogger('slavem')
 
@@ -31,15 +32,8 @@ class Task(object):
         生成用于保存到 MongoDB 的任务
         :return:
         """
-        dic = {
-            'name': self.name,
-            'type': self.type,
-            'lanuch': self.lanuch.strftime('%H:%M:%S'),
-            'delay': self.delay,  # min
-            'host': self.host,
-            'des': self.des,
-            'off': self.off,
-        }
+        dic = {k: self.__dict__[k] for k in self.toMongoDbArgs}
+        dic['lanuch'] = self.lanuch.strftime('%H:%M:%S')
         return dic
 
     def __str__(self):
