@@ -17,13 +17,13 @@ if __debug__:
 
 with open(tasksFile, 'r') as f:
     tasksArgs = json.load(f)
-    if __debug__:
-        import datetime
-        t = tasksArgs[0]
-        now = datetime.datetime.now()
-        now - datetime.timedelta(seconds=40)
-        t['lanuch'] = now.time().strftime('%H:%M:%S')
-        t['delay'] = 1
+    # if __debug__:
+    #     import datetime
+    #     t = tasksArgs[0]
+    #     now = datetime.datetime.now()
+    #     now - datetime.timedelta(seconds=40)
+    #     t['lanuch'] = now.time().strftime('%H:%M:%S')
+    #     t['delay'] = 1
 
 monitor.dbConnect()
 monitor.db[monitor.taskCollectionName].remove({})

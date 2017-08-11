@@ -1,5 +1,11 @@
 import datetime
 import logging
+from dateutil.parser import parse
+import pytz
+
+import arrow
+
+from .constant import LOCAL_TIMEZONE
 
 
 class Task(object):
@@ -7,22 +13,24 @@ class Task(object):
     定时任务实例
     """
 
-    def __init__(self, name, type, lanuch, delay, host, des, off):
+    def __init__(self, name, type, lanuch, delay, host, des, off, tzinfo):
         # 需要保存到MongoDB的参数
         self.name = name
         self.type = type
-        self.lanuch = datetime.datetime.strptime(lanuch, '%H:%M:%S').time()
+        # self.lanuch = datetime.datetime.strptime(lanuch, '%H:%M:%S').time()
+        self.lanuch = parse(lanuch).time()
+        self.tzinfo = pytz.timezone(tzinfo)
         self.delay = delay  # min
         self.host = host
         self.des = des  # 备注描述
         self.off = off
         # ====================
-        self.toMongoDbArgs = ['name', 'type', 'lanuch', 'delay', 'host', 'des', 'off']
+        self.toMongoDbArgs = ['name', 'type', 'lanuch', 'delay', 'host', 'des', 'off', 'tzinfo']
 
         self.log = logging.getLogger('slavem')
 
-        self.lanuchTime = datetime.datetime.now()
-        self.deadline = datetime.datetime.now()
+        self.lanuchTime = arrow.now()
+        self.deadline = arrow.now()
         self.refreshDeadline()
 
         self.isLate = False
@@ -34,6 +42,7 @@ class Task(object):
         """
         dic = {k: self.__dict__[k] for k in self.toMongoDbArgs}
         dic['lanuch'] = self.lanuch.strftime('%H:%M:%S')
+        dic['tzinfo'] = self.tzinfo.zone
         return dic
 
     def __str__(self):
@@ -53,6 +62,7 @@ class Task(object):
         self.deadline = self.getDeadline()
         # 计算开始时间
         lanuchTime = datetime.datetime.combine(self.deadline.date(), self.lanuch)
+        lanuchTime = self.tzinfo.localize(lanuchTime)
 
         if lanuchTime > self.deadline:
             # 跨天了
@@ -65,8 +75,11 @@ class Task(object):
 
         :return:
         """
-        now = datetime.datetime.now()
+        now = arrow.now()
+
         lanuchTime = datetime.datetime.combine(now.date(), self.lanuch)
+        lanuchTime = self.tzinfo.localize(lanuchTime)
+
         deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
 
         if deadline < now:

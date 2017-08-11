@@ -2,14 +2,15 @@ import sys
 import signal
 import logging.config
 import time
-import traceback
 
+import arrow
 import pymongo
 import datetime
 import requests
 import log4mongo.handlers
 
 from .tasks import Task
+from .constant import *
 
 __all__ = [
     'Monitor'
@@ -46,12 +47,15 @@ class Monitor(object):
         self.log = logging.getLogger()
         self.initLog(loggingconf)
 
-        self.serverChan = serverChan or {}
-        if not self.serverChan:
-            print(u'没有配置 serverChan 的密钥')
-
         # serverChan 的汇报地址
-        self.serverChanFormat = u"https://sc.ftqq.com/{SCKEY}.send?text={text}&desp={desp}"
+        self.serverChan = serverChan or {}
+        if self.serverChan:
+            for account, url in self.serverChan.items():
+                serverChanUrl = requests.get(url).text
+                self.serverChan[account] = serverChanUrl
+        else:
+            print(u'没有配置 serverChan 的 url')
+
 
         self.mongourl = 'mongodb://{username}:{password}@{host}:{port}/{dbn}?authMechanism=SCRAM-SHA-1'.format(
             **self.mongoSetting)
@@ -60,7 +64,7 @@ class Monitor(object):
         self._inited = False
 
         # 下次查看是否已经完成任务的时间
-        self.nextWatchTime = datetime.datetime.now()
+        self.nextWatchTime = arrow.now()
 
         # 关闭服务的信号
         for sig in [signal.SIGINT,  # 键盘中 Ctrl-C 组合键信号
@@ -70,7 +74,6 @@ class Monitor(object):
             signal.signal(sig, self.shutdown)
 
         self.authed = False
-
 
     def initLog(self, loggingconf):
         """
@@ -168,7 +171,7 @@ class Monitor(object):
         self.reportWatchTime()
 
         while self.__active:
-            now = datetime.datetime.now()
+            now = arrow.now()
             if now < self.nextWatchTime:
                 time.sleep(1)
                 continue
@@ -186,12 +189,13 @@ class Monitor(object):
 
             # 下次任务时间
             self.reportWatchTime()
+
     def reportWatchTime(self):
         """
         下次任务的时间
         :return:
         """
-        now = datetime.datetime.now()
+        now = arrow.now()
         if now < self.nextWatchTime:
             # 还没到观察下一个任务的时间
             rest = self.nextWatchTime - now
@@ -266,7 +270,6 @@ class Monitor(object):
             for t in self.tasks:
                 self.log.debug(str(t))
 
-
     def sortTask(self):
         """
         对任务进行排序
@@ -284,7 +287,7 @@ class Monitor(object):
             self.nextWatchTime = t.deadline
         except IndexError:
             # 如果没有任务，那么下次检查时间就是1分钟后
-            self.nextWatchTime = datetime.datetime.now() + datetime.timedelta(seconds=60)
+            self.nextWatchTime = arrow.now() + datetime.timedelta(seconds=60)
             return
 
     def checkTask(self):
@@ -296,7 +299,7 @@ class Monitor(object):
 
         taskList = []
         firstLanuchTime = None
-        now = datetime.datetime.now()
+        now = arrow.now()
         for t in self.tasks:
             assert isinstance(t, Task)
             if now >= t.deadline:
@@ -354,7 +357,7 @@ class Monitor(object):
         """
         # 通知：任务延迟完成了
         text = u'服务{name}启动迟到'.format(name=task.name)
-        desp = u'当前时间:{}'.format(datetime.datetime.now())
+        desp = u'当前时间:{}'.format(arrow.now())
 
         for k, v in task.toNotice().items():
             desp += u'\n\n{}\t:{}'.format(k, v)
@@ -368,7 +371,7 @@ class Monitor(object):
         """
         # 通知：未收到任务完成通知
         text = u'服务{name}未启动'.format(name=task.name)
-        desp = u'当前时间\t:{}'.format(datetime.datetime.now())
+        desp = u'当前时间\t:{}'.format(arrow.now())
 
         for k, v in task.toNotice().items():
             desp += u'\n\n{}\t:{}'.format(k, v)
@@ -380,14 +383,14 @@ class Monitor(object):
 
         :return:
         """
-        for account, SCKEY in self.serverChan.items():
-            url = self.serverChanFormat.format(SCKEY=SCKEY, text=text, desp=desp)
+        for account, serverChanUrl in self.serverChan.items():
+            url = serverChanUrl.format(text=text, desp=desp)
             while True:
                 r = requests.get(url)
                 if r.status_code == 200:
                     # 发送异常，重新发送
                     break
-                self.log.warn(u'向serverChan发送信息异常 code:{}'.format(r.status_code))
+                self.log.warning(u'向serverChan发送信息异常 code:{}'.format(r.status_code))
                 time.sleep(10)
 
             self.log.info(u'向 {} 发送信息 '.format(account))
