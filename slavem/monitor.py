@@ -2,6 +2,7 @@ import sys
 import signal
 import logging.config
 import time
+from bson.codec_options import CodecOptions
 
 import arrow
 import pymongo
@@ -56,7 +57,6 @@ class Monitor(object):
         else:
             print(u'没有配置 serverChan 的 url')
 
-
         self.mongourl = 'mongodb://{username}:{password}@{host}:{port}/{dbn}?authMechanism=SCRAM-SHA-1'.format(
             **self.mongoSetting)
 
@@ -65,6 +65,9 @@ class Monitor(object):
 
         # 下次查看是否已经完成任务的时间
         self.nextWatchTime = arrow.now()
+
+        # 下次检查心跳的时间
+        self.nextCheckHeartBeatTime = arrow.now()
 
         # 关闭服务的信号
         for sig in [signal.SIGINT,  # 键盘中 Ctrl-C 组合键信号
@@ -122,6 +125,10 @@ class Monitor(object):
     def reportCollectionName(self):
         return 'report'
 
+    @property
+    def heartBeatCollectionName(self):
+        return 'heartbeat'
+
     def dbConnect(self):
         """
         建立数据库链接
@@ -171,11 +178,44 @@ class Monitor(object):
         self.reportWatchTime()
 
         while self.__active:
-            now = arrow.now()
-            if now < self.nextWatchTime:
-                time.sleep(1)
-                continue
+            time.sleep(1)
+            # 检查任务启动
+            self.doCheckTaskLanuch()
 
+            # 检查心跳
+            self.doCheckHeartBeat()
+
+    def doCheckHeartBeat(self):
+        """
+
+        :return:
+        """
+        now = arrow.now()
+        if now >= self.nextCheckHeartBeatTime:
+            # 心跳间隔检查是每分钟1次
+            self.nextCheckHeartBeatTime = now + datetime.timedelta(minutes=1)
+
+            # 检查心跳
+            collection = self.db[self.heartBeatCollectionName]
+            c = collection.with_options(
+                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
+
+            cursor = c.find({}, {'_id': 0})
+
+            noHeartBeat = []
+            for heartBeat in cursor:
+                if now - heartBeat['datetime'] > datetime.timedelta(minutes=1):
+                    # 心跳异常，汇报
+                    noHeartBeat.append(heartBeat)
+
+            if noHeartBeat:
+                self.log.warning(u"心跳异常{}".format(str(noHeartBeat)))
+                self.noticeHeartBeat(noHeartBeat)
+
+    def doCheckTaskLanuch(self):
+
+        now = arrow.now()
+        if now >= self.nextWatchTime:
             self.log.info(u'达到截止时间')
 
             # 检查任务
@@ -376,6 +416,14 @@ class Monitor(object):
         for k, v in task.toNotice().items():
             desp += u'\n\n{}\t:{}'.format(k, v)
 
+        self.sendServerChan(text, desp)
+
+    def noticeHeartBeat(self, noHeartBeats):
+        # 通知：未收到任务完成通知
+        text = u'心跳异常'
+        desp = u''
+        for dic in noHeartBeats:
+            desp += u'{}\n\n'.format(str(dic))
         self.sendServerChan(text, desp)
 
     def sendServerChan(self, text, desp):
