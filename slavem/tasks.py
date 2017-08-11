@@ -1,33 +1,36 @@
-# coding:utf-8
-
 import datetime
 import logging
+from dateutil.parser import parse
+import pytz
+
+import arrow
+
+from .constant import LOCAL_TIMEZONE
+
 
 class Task(object):
     """
     定时任务实例
     """
 
-    def __init__(self, name, type, lanuch, delay, host):
-        """
-
-        :param name: 服务名，可重复
-        :param type:
-        :param lanuch:
-        :param delay:
-        """
+    def __init__(self, name, type, lanuch, delay, host, des, off, tzinfo):
         # 需要保存到MongoDB的参数
         self.name = name
         self.type = type
-        self.lanuch = datetime.datetime.strptime(lanuch, '%H:%M:%S').time()
+        # self.lanuch = datetime.datetime.strptime(lanuch, '%H:%M:%S').time()
+        self.lanuch = parse(lanuch).time()
+        self.tzinfo = pytz.timezone(tzinfo)
         self.delay = delay  # min
         self.host = host
+        self.des = des  # 备注描述
+        self.off = off
         # ====================
+        self.toMongoDbArgs = ['name', 'type', 'lanuch', 'delay', 'host', 'des', 'off', 'tzinfo']
 
         self.log = logging.getLogger('slavem')
 
-        self.lanuchTime = datetime.datetime.now()
-        self.deadline = datetime.datetime.now()
+        self.lanuchTime = arrow.now()
+        self.deadline = arrow.now()
         self.refreshDeadline()
 
         self.isLate = False
@@ -37,13 +40,9 @@ class Task(object):
         生成用于保存到 MongoDB 的任务
         :return:
         """
-        dic = {
-            'name': self.name,
-            'type': self.type,
-            'lanuch': self.lanuch.strftime('%H:%M:%S'),
-            'delay': self.delay,  # min
-            'host': self.host,
-        }
+        dic = {k: self.__dict__[k] for k in self.toMongoDbArgs}
+        dic['lanuch'] = self.lanuch.strftime('%H:%M:%S')
+        dic['tzinfo'] = self.tzinfo.zone
         return dic
 
     def __str__(self):
@@ -63,6 +62,7 @@ class Task(object):
         self.deadline = self.getDeadline()
         # 计算开始时间
         lanuchTime = datetime.datetime.combine(self.deadline.date(), self.lanuch)
+        lanuchTime = self.tzinfo.localize(lanuchTime)
 
         if lanuchTime > self.deadline:
             # 跨天了
@@ -75,8 +75,11 @@ class Task(object):
 
         :return:
         """
-        now = datetime.datetime.now()
+        now = arrow.now()
+
         lanuchTime = datetime.datetime.combine(now.date(), self.lanuch)
+        lanuchTime = self.tzinfo.localize(lanuchTime)
+
         deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
 
         if deadline < now:
@@ -91,16 +94,24 @@ class Task(object):
         :param report:  dict()
         :return:
         """
+
         if self.name != report['name']:
-            return False
-        if self.type != report['type']:
-            return False
-        if self.host != report['host']:
-            return False
-        if self.lanuchTime <= report['datetime'] <= self.deadline:
-            return True
+            r, diff = False, 'name'
+        elif self.type != report['type']:
+            r, diff = False, 'type'
+        elif self.host != report['host']:
+            r, diff = False, 'host'
+        elif self.lanuchTime > report['datetime'] or report['datetime'] > self.deadline:
+            r, diff = False, 'datetime'
         else:
-            return True
+            r, diff = True, None
+
+        if __debug__ and not r:
+            rv = report[diff]
+            sv = getattr(self, diff)
+            self.log.debug(u'报告 {sv} 不匹配 {rv}'.format(sv=sv, rv=rv))
+
+        return r
 
     def finishAndRefresh(self):
         """
@@ -126,3 +137,13 @@ class Task(object):
         :return:
         """
         return self.__dict__.copy()
+
+    def toSameTaskKV(self):
+        return {
+            'name': self.name,
+            'type': self.type,
+            'lanuch': self.lanuch.strftime('%H:%M:%S'),
+        }
+
+    def __eq__(self, other):
+        return self.toSameTaskKV() == other.toSameTaskKV()

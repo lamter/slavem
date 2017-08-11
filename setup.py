@@ -1,10 +1,10 @@
-# coding: utf-8
 from setuptools import setup, find_packages
 import os
 
 
 def read(fname):
-    with open(os.path.join(os.path.dirname(__file__), fname)) as f:
+    path = os.path.join(os.path.dirname(__file__), fname)
+    with open(path, 'r', encoding='utf8') as f:
         return f.read()
 
 
@@ -26,7 +26,6 @@ setup(
     },
     install_requires=read("requirements.txt").splitlines(),
     classifiers=[
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: MIT License'],
