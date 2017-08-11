@@ -344,7 +344,7 @@ class Monitor(object):
         for t in taskList:
             if t.isTimeToNoticeDelay():
                 self.noticeUnreport(t)
-                self.refreshLastDelayNoticeTime()
+                t.refreshLastDelayNoticeTime()
 
             # 设置为启动迟到
             t.setLate()
