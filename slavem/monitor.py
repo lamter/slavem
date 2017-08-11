@@ -342,7 +342,10 @@ class Monitor(object):
 
         # 未能准时启动的服务
         for t in taskList:
-            self.noticeUnreport(t)
+            if t.isTimeToNoticeDelay():
+                self.noticeUnreport(t)
+                self.refreshLastDelayNoticeTime()
+
             # 设置为启动迟到
             t.setLate()
             # 未完成，将 deadline 延迟到1分钟后
