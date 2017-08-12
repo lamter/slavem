@@ -16,7 +16,7 @@ class Task(object):
 
     DEALY_NOTICE_INTERVAL = datetime.timedelta(minutes=10)
 
-    def __init__(self, name, type, lanuch, delay, host, des, off, tzinfo):
+    def __init__(self, name, type, lanuch, delay, host, des, off, tzinfo, weekday):
         # 需要保存到MongoDB的参数
         self.name = name
         self.type = type
@@ -27,8 +27,9 @@ class Task(object):
         self.host = host
         self.des = des  # 备注描述
         self.off = off
+        self.weekday = weekday
         # ====================
-        self.toMongoDbArgs = ['name', 'type', 'lanuch', 'delay', 'host', 'des', 'off', 'tzinfo']
+        self.toMongoDbArgs = ['name', 'type', 'lanuch', 'delay', 'host', 'des', 'off', 'tzinfo', 'weekday']
 
         self.log = logging.getLogger('slavem')
 
@@ -84,6 +85,9 @@ class Task(object):
 
         lanuchTime = datetime.datetime.combine(now.date(), self.lanuch)
         lanuchTime = self.tzinfo.localize(lanuchTime)
+
+        while lanuchTime.isoweekday() not in self.weekday:
+            lanuchTime += datetime.timedelta(days=1)
 
         deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
 

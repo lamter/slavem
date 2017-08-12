@@ -114,7 +114,7 @@ class Monitor(object):
             sh.setFormatter(formatter)
             sh.setLevel('WARN')
             self.log.addHandler(sh)
-            self.log.warn(u'未配置 loggingconfig')
+            self.log.warning(u'未配置 loggingconfig')
 
     @property
     def taskCollectionName(self):
@@ -264,7 +264,7 @@ class Monitor(object):
         self.__active = True
         try:
             self._run()
-        except:
+        except Exception as e:
             err = traceback.format_exc()
             self.log.critical(err)
             self.stop()
@@ -289,9 +289,6 @@ class Monitor(object):
     def __del__(self):
         """
         实例释放时的处理
-        :param exc_type:
-        :param exc_val:
-        :param exc_tb:
         :return:
         """
         try:
@@ -406,7 +403,6 @@ class Monitor(object):
         """
 
         :param task: tasks.Task
-        :param report: dict()
         :return:
         """
         # 通知：任务延迟完成了
