@@ -2,6 +2,7 @@ import sys
 import signal
 import logging.config
 import time
+import traceback
 
 import arrow
 import pymongo
@@ -214,8 +215,8 @@ class Monitor(object):
         try:
             self._run()
         except Exception as e:
-            print(e.message)
-            self.log.critical(e.message)
+            err = traceback.format_exc()
+            self.log.critical(err)
             self.stop()
 
     def stop(self):
