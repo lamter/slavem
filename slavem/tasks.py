@@ -13,6 +13,8 @@ class Task(object):
     定时任务实例
     """
 
+    DEALY_NOTICE_INTERVAL = datetime.timedelta(minutes=10)
+
     def __init__(self, name, type, lanuch, delay, host, des, off, tzinfo):
         # 需要保存到MongoDB的参数
         self.name = name
@@ -32,6 +34,8 @@ class Task(object):
         self.lanuchTime = arrow.now()
         self.deadline = arrow.now()
         self.refreshDeadline()
+        # 最后一次延迟通知
+        self.lastDelayNoticeTime = None
 
         self.isLate = False
 
@@ -147,3 +151,20 @@ class Task(object):
 
     def __eq__(self, other):
         return self.toSameTaskKV() == other.toSameTaskKV()
+
+    def isTimeToNoticeDelay(self):
+        """
+        是否到了报告延迟的时间
+        :return:
+        """
+        if self.lastDelayNoticeTime is None:
+            return True
+
+        return arrow.now() - self.lastDelayNoticeTime > self.DEALY_NOTICE_INTERVAL
+
+    def refreshLastDelayNoticeTime(self):
+        """
+
+        :return:
+        """
+        self.lastDelayNoticeTime = arrow.now()
