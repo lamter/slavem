@@ -1,8 +1,10 @@
+# coding:utf-8
 import sys
 import signal
 import logging.config
 import time
 from bson.codec_options import CodecOptions
+import traceback
 
 import arrow
 import pymongo
@@ -68,6 +70,7 @@ class Monitor(object):
 
         # 下次检查心跳的时间
         self.nextCheckHeartBeatTime = arrow.now()
+        self.nextRemoveOutdateReportTime = arrow.now()
 
         # 关闭服务的信号
         for sig in [signal.SIGINT,  # 键盘中 Ctrl-C 组合键信号
@@ -114,10 +117,6 @@ class Monitor(object):
             self.log.warn(u'未配置 loggingconfig')
 
     @property
-    def db(self):
-        return self.mongoclient[self.mongoSetting['dbn']]
-
-    @property
     def taskCollectionName(self):
         return 'task'
 
@@ -143,12 +142,24 @@ class Monitor(object):
                 host=self.mongoSetting['host'],
                 port=self.mongoSetting['port']
             )
+
+            db = self.mongoclient[self.mongoSetting['dbn']]
+            self.db = db
             if self.mongoSetting.get('username'):
                 # self.mongoclient = pymongo.MongoClient(self.mongourl)
-                self.authed = self.db.authenticate(
+                self.authed = db.authenticate(
                     self.mongoSetting['username'],
                     self.mongoSetting['password']
                 )
+
+            self.reportCollection = db[self.reportCollectionName].with_options(
+                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
+
+            self.tasksCollection = db[self.taskCollectionName].with_options(
+                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
+
+            self.heartBeatCollection = db[self.heartBeatCollectionName].with_options(
+                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
 
     def init(self):
         """
@@ -185,6 +196,9 @@ class Monitor(object):
             # 检查心跳
             self.doCheckHeartBeat()
 
+            # 删除过期的汇报
+            self.removeOutdateReport()
+
     def doCheckHeartBeat(self):
         """
 
@@ -196,11 +210,8 @@ class Monitor(object):
             self.nextCheckHeartBeatTime = now + datetime.timedelta(minutes=1)
 
             # 检查心跳
-            collection = self.db[self.heartBeatCollectionName]
-            c = collection.with_options(
-                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
 
-            cursor = c.find({}, {'_id': 0})
+            cursor = self.heartBeatCollection.find({}, {'_id': 0})
 
             noHeartBeat = []
             for heartBeat in cursor:
@@ -253,9 +264,9 @@ class Monitor(object):
         self.__active = True
         try:
             self._run()
-        except Exception as e:
-            print(e.message)
-            self.log.critical(e.message)
+        except:
+            err = traceback.format_exc()
+            self.log.critical(err)
             self.stop()
 
     def stop(self):
@@ -296,7 +307,7 @@ class Monitor(object):
         :return:
         """
         # 读取任务
-        taskCol = self.db[self.taskCollectionName]
+        taskCol = self.tasksCollection
         taskList = []
         for t in taskCol.find():
             if t.get('off'):
@@ -454,7 +465,7 @@ class Monitor(object):
         sql = newTask.toSameTaskKV()
         dic = newTask.toMongoDB()
 
-        self.db.task.update_one(sql, {'$set': dic}, upsert=True)
+        self.tasksCollection.update_one(sql, {'$set': dic}, upsert=True)
         # self.db.task.find_one_and_update(sql, {'$set': dic}, upsert=True)
         self.log.info(u'创建了task {}'.format(str(dic)))
 
@@ -465,3 +476,24 @@ class Monitor(object):
         """
         for t in self.tasks:
             print(t.toMongoDB())
+
+    def removeOutdateReport(self):
+        """
+
+        :return:
+        """
+        now = arrow.now()
+        if now >= self.nextRemoveOutdateReportTime:
+            # 每天执行一次
+            self.nextRemoveOutdateReportTime = now + datetime.timedelta(days=1)
+            collection = self.reportCollection
+
+            # 删除7天之前的
+            deadline = now.datetime - datetime.timedelta(days=7)
+            result = collection.remove({
+                'datetime': {
+                    '$lt': deadline
+                }
+            })
+            num = result['n']
+            self.log.info(u'清空了 {} 条启动报告'.format(num))

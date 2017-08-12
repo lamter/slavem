@@ -1,3 +1,4 @@
+# coding:utf-8
 import pymongo
 import arrow
 import datetime
@@ -12,20 +13,20 @@ class Reporter(object):
     用于服务的汇报
     """
 
-    def __init__(self, slavemName, slavemType, slavemHost, slavemPort, slavemdbn, slavemUsername, slavemPassword,
-                 slaveMLocalhost):
-        self.slavemName = slavemName
-        self.slavemType = slavemType
-        self.slavemHost = slavemHost
-        self.slavemPort = slavemPort
-        self.slavemdbn = slavemdbn
-        self.slavemUsername = slavemUsername
-        self.slavemPassword = slavemPassword
-        self.slaveMLocalhost = slaveMLocalhost
+    def __init__(self, name, type, host, port, dbn, username, password,
+                 localhost):
+        self.name = name
+        self.type = type
+        self.host = host
+        self.port = port
+        self.dbn = dbn
+        self.username = username
+        self.password = password
+        self.localhost = localhost
 
         # 链接数据库
-        self.db = pymongo.MongoClient(self.slavemHost, self.slavemPort)[self.slavemdbn]
-        self.db.authenticate(self.slavemUsername, self.slavemPassword)
+        self.db = pymongo.MongoClient(self.host, self.port)[self.dbn]
+        self.db.authenticate(self.username, self.password)
 
         # 是否已经启动汇报过了
         self.isStartReported = False
@@ -38,6 +39,7 @@ class Reporter(object):
         启动时的汇报
         :return:
         """
+
         if self.isStartReported:
             return
         self.isStartReported = True
@@ -45,10 +47,10 @@ class Reporter(object):
         # 提交报告的 collection
         report = self.db['report']
         r = {
-            'name': self.slavemName,
-            'type': self.slavemType,
+            'name': self.name,
+            'type': self.type,
             'datetime': arrow.now().datetime,
-            'host': self.slaveMLocalhost,
+            'host': self.localhost,
         }
 
         r = report.insert_one(r)
@@ -65,15 +67,15 @@ class Reporter(object):
         """
         heartbeat = self.db['heartbeat']
         filter = {
-            'name': self.slavemName,
-            'type': self.slavemType,
-            'host': self.slaveMLocalhost,
+            'name': self.name,
+            'type': self.type,
+            'host': self.localhost,
         }
         r = {
-            'name': self.slavemName,
-            'type': self.slavemType,
+            'name': self.name,
+            'type': self.type,
             'datetime': arrow.now().datetime,
-            'host': self.slaveMLocalhost,
+            'host': self.localhost,
         }
 
         heartbeat.find_one_and_replace(filter, r, upsert=True)
@@ -85,8 +87,8 @@ class Reporter(object):
         """
         heartbeat = self.db['heartbeat']
         filter = {
-            'name': self.slavemName,
-            'type': self.slavemType,
-            'host': self.slaveMLocalhost,
+            'name': self.name,
+            'type': self.type,
+            'host': self.localhost,
         }
         heartbeat.delete_many(filter)
