@@ -1,10 +1,11 @@
+# coding:utf-8
 from setuptools import setup, find_packages
 import os
 
 
 def read(fname):
     path = os.path.join(os.path.dirname(__file__), fname)
-    with open(path, 'r', encoding='utf8') as f:
+    with open(path, 'r') as f:
         return f.read()
 
 
