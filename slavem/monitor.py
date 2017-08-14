@@ -368,14 +368,17 @@ class Monitor(object):
             }
         }
 
-        reportCol = self.db[self.reportCollectionName]
+        reportCol = self.reportCollection
         cursor = reportCol.find(sql)
 
         if __debug__:
             self.log.debug(u'查询到 {} 条报告'.format(cursor.count()))
 
         # 核对启动报告
+        print(1212)
+        print(sql)
         for report in cursor:
+            print(report['datetime'])
             for t in taskList:
                 assert isinstance(t, Task)
                 if t.isReport(report):

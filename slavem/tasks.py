@@ -118,7 +118,7 @@ class Task(object):
         if __debug__ and not r:
             rv = report[diff]
             sv = getattr(self, diff)
-            self.log.debug(u'报告 {sv} 不匹配 {rv}'.format(sv=sv, rv=rv))
+            self.log.debug(u'报告 {sv} 不匹配任务 {rv}'.format(sv=sv, rv=rv))
 
         return r
 
