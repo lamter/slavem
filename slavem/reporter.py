@@ -3,6 +3,8 @@ import pymongo
 import arrow
 import datetime
 
+from pymongo.errors import AutoReconnect
+
 __all__ = [
     'Reporter'
 ]
@@ -33,6 +35,7 @@ class Reporter(object):
 
         # 心跳最少要5秒
         self.heartBeatMinInterval = datetime.timedelta(seconds=5)
+
 
     def lanuchReport(self):
         """
@@ -65,20 +68,24 @@ class Reporter(object):
         服务的心跳，建议19秒次。服务器端为每分钟检查一次心跳，可以保证1分钟有3次心跳
         :return:
         """
-        heartbeat = self.db['heartbeat']
-        filter = {
-            'name': self.name,
-            'type': self.type,
-            'host': self.localhost,
-        }
-        r = {
-            'name': self.name,
-            'type': self.type,
-            'datetime': arrow.now().datetime,
-            'host': self.localhost,
-        }
+        try:
+            heartbeat = self.db['heartbeat']
+            filter = {
+                'name': self.name,
+                'type': self.type,
+                'host': self.localhost,
+            }
+            r = {
+                'name': self.name,
+                'type': self.type,
+                'datetime': arrow.now().datetime,
+                'host': self.localhost,
+            }
 
-        heartbeat.find_one_and_replace(filter, r, upsert=True)
+            heartbeat.find_one_and_replace(filter, r, upsert=True)
+        except AutoReconnect:
+            print('report 重连失败')
+
 
     def endHeartBeat(self):
         """
