@@ -307,7 +307,7 @@ class Monitor(object):
         taskCol = self.tasksCollection
         taskList = []
         for t in taskCol.find():
-            if t.get('off'):
+            if not t.get('active'):
                 continue
             t.pop('_id')
             taskList.append(Task(**t))
