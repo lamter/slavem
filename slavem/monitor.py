@@ -206,8 +206,8 @@ class Monitor(object):
         """
         now = arrow.now()
         if now >= self.nextCheckHeartBeatTime:
-            # 心跳间隔检查是每分钟1次
-            self.nextCheckHeartBeatTime = now + datetime.timedelta(minutes=1)
+            # 心跳间隔检查是每5分钟1次
+            self.nextCheckHeartBeatTime = now + datetime.timedelta(minutes=5)
 
             # 检查心跳
 

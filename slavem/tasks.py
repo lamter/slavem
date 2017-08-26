@@ -78,17 +78,14 @@ class Task(object):
         self.log.info('name: {name} lanuch: {lanuch} deadline: {deadline}'.format(**self.__dict__))
 
     def getDeadline(self):
-        """
-
-        :return:
-        """
         now = arrow.now()
 
         lanuchTime = datetime.datetime.combine(now.date(), self.lanuch)
         lanuchTime = self.tzinfo.localize(lanuchTime)
 
+        self.log.info('lanuchTime week: {}  self.weekday: {}'.format(lanuchTime.isoweekday(), str(self.weekday)))
         while lanuchTime.isoweekday() not in self.weekday:
-            self.log.info('lanuchTime week: {} not in {}'.format(lanuchTime.isoweekday(), str(self.weekday)))
+            self.log.info('lanuchTime week: {}  self.weekday: {}'.format(lanuchTime.isoweekday(), str(self.weekday)))
             lanuchTime += datetime.timedelta(days=1)
 
         deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
