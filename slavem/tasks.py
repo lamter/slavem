@@ -31,7 +31,9 @@ class Task(object):
         # ====================
         self.toMongoDbArgs = ['name', 'type', 'lanuch', 'delay', 'host', 'des', 'active', 'tzinfo', 'weekday']
 
-        self.log = logging.getLogger('slavem')
+        self.log = logging.getLogger(u'{}'.format(self.name))
+        self.log.parent = logging.getLogger('slavem')
+        self.log.propagate = 1
 
         self.lanuchTime = arrow.now()
         self.deadline = arrow.now()
@@ -65,36 +67,53 @@ class Task(object):
         截止时间
         :return:
         """
-        self.deadline = self.getDeadline()
-        # 计算开始时间
-        lanuchTime = datetime.datetime.combine(self.deadline.date(), self.lanuch)
-        lanuchTime = self.tzinfo.localize(lanuchTime)
-
-        if lanuchTime > self.deadline:
-            # 跨天了
-            lanuchTime -= datetime.timedelta(days=1)
-
-        self.lanuchTime = lanuchTime
-        self.log.info('name: {name} lanuch: {lanuch} deadline: {deadline}'.format(**self.__dict__))
-
-    def getDeadline(self):
         now = arrow.now()
-
+        # 当前的启动时间
         lanuchTime = datetime.datetime.combine(now.date(), self.lanuch)
         lanuchTime = self.tzinfo.localize(lanuchTime)
+        self.log.info(u'当前的启动时间 {}'.format(lanuchTime))
 
+        # 当前的截止时间
         deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
-        self.log.info('deadline week: {}  self.weekday: {}'.format(deadline.isoweekday(), str(self.weekday)))
-
-        while deadline.isoweekday() not in self.weekday:
-            self.log.info('deadline week: {}  self.weekday: {}'.format(deadline.isoweekday(), str(self.weekday)))
-            deadline += datetime.timedelta(days=1)
+        self.log.info(u'当前的截止时间 {}'.format(lanuchTime))
 
         if deadline < now:
-            # 现在已经过了截止日期了，时间推迟到次日
-            deadline += datetime.timedelta(days=1)
+            # 现在已经过了今天的截止日期了，启动时间推迟到次日
+            lanuchTime += datetime.timedelta(days=1)
+            self.log.info(u'现在已经过了今天的截止日期了，启动时间推迟到次日 {}'.format(lanuchTime))
 
-        return deadline
+        while lanuchTime.isoweekday() not in self.weekday:
+            # 对应的星期几,递增直到获得最终的下一个启动时间 launchTime
+            lanuchTime += datetime.timedelta(days=1)
+            self.log.info(u'lanuchTime 对应星期几 {}'.format(lanuchTime.isoweekday()))
+
+        # 最终的计算得到的启动赶时间
+        self.lanuchTime = lanuchTime
+        # 从新计算截止时间
+        self.deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
+
+        self.lanuchTime = lanuchTime
+        self.log.info(
+            'name: {name} lanuch: {lanuch} lanuchTime: {lanuchTime} deadline: {deadline}'.format(**self.__dict__))
+
+    # def getDeadline(self):
+    #     now = arrow.now()
+    #
+    #     lanuchTime = datetime.datetime.combine(now.date(), self.lanuch)
+    #     lanuchTime = self.tzinfo.localize(lanuchTime)
+    #
+    #     self.log.info('lanuchTime week: {}  self.weekday: {}'.format(lanuchTime.isoweekday(), str(self.weekday)))
+    #     while lanuchTime.isoweekday() not in self.weekday:
+    #         self.log.info('lanuchTime week: {}  self.weekday: {}'.format(lanuchTime.isoweekday(), str(self.weekday)))
+    #         lanuchTime += datetime.timedelta(days=1)
+    #
+    #     deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
+    #
+    #     if deadline < now:
+    #         # 现在已经过了截止日期了，时间推迟到次日
+    #         deadline += datetime.timedelta(days=1)
+    #
+    #     return deadline
 
     def isReport(self, report):
         """
