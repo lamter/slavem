@@ -83,12 +83,12 @@ class Task(object):
         lanuchTime = datetime.datetime.combine(now.date(), self.lanuch)
         lanuchTime = self.tzinfo.localize(lanuchTime)
 
-        self.log.info('lanuchTime week: {}  self.weekday: {}'.format(lanuchTime.isoweekday(), str(self.weekday)))
-        while lanuchTime.isoweekday() not in self.weekday:
-            self.log.info('lanuchTime week: {}  self.weekday: {}'.format(lanuchTime.isoweekday(), str(self.weekday)))
-            lanuchTime += datetime.timedelta(days=1)
-
         deadline = lanuchTime + datetime.timedelta(seconds=60 * self.delay)
+        self.log.info('deadline week: {}  self.weekday: {}'.format(deadline.isoweekday(), str(self.weekday)))
+
+        while deadline.isoweekday() not in self.weekday:
+            self.log.info('deadline week: {}  self.weekday: {}'.format(deadline.isoweekday(), str(self.weekday)))
+            deadline += datetime.timedelta(days=1)
 
         if deadline < now:
             # 现在已经过了截止日期了，时间推迟到次日
