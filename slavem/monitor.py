@@ -5,9 +5,11 @@ import logging.config
 import time
 from bson.codec_options import CodecOptions
 import traceback
+from threading import Thread
 
 import arrow
-import pymongo
+from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
+from pymongo.errors import OperationFailure
 import datetime
 import requests
 import log4mongo.handlers
@@ -26,6 +28,8 @@ class Monitor(object):
 
     """
     name = 'slavem'
+
+    WARNING_LOG_INTERVAL = datetime.timedelta(seconds=10)
 
     def __init__(self, host='localhost', port=27017, dbn='slavem', username=None, password=None, serverChan=None,
                  loggingconf=None):
@@ -81,6 +85,20 @@ class Monitor(object):
 
         self.authed = False
 
+        # 定时检查日志中LEVEL >= WARNING
+        self.threadWarningLog = Thread(target=self.logWarning, name='logWarning')
+        self.lastWarningLogTime = arrow.now()
+
+        logMongoConf = loggingconf['handlers']['mongo']
+        self.logDB = MongoClient(
+            logMongoConf['host'],
+            logMongoConf['port'],
+        )[logMongoConf['database_name']]
+        self.logDB.authenticate(logMongoConf['username'], logMongoConf['password'])
+
+        # 初始化日志的 collection
+        self.initLogCollection()
+
     def initLog(self, loggingconf):
         """
         初始化日志
@@ -90,7 +108,7 @@ class Monitor(object):
         if loggingconf:
             # log4mongo 的bug导致使用非admin用户时，建立会报错。
             # 这里使用注入的方式跳过会报错的代码
-            log4mongo.handlers._connection = pymongo.MongoClient(
+            log4mongo.handlers._connection = MongoClient(
                 host=loggingconf['handlers']['mongo']['host'],
                 port=loggingconf['handlers']['mongo']['port'],
             )
@@ -138,7 +156,7 @@ class Monitor(object):
             self.mongoclient.server_info()
         except:
             # 重新链接
-            self.mongoclient = pymongo.MongoClient(
+            self.mongoclient = MongoClient(
                 host=self.mongoSetting['host'],
                 port=self.mongoSetting['port']
             )
@@ -262,8 +280,14 @@ class Monitor(object):
         self.init()
 
         self.__active = True
+        self.threadWarningLog.start()
+
         try:
             self._run()
+            if self.threadWarningLog.isAlive():
+                self.threadWarningLog.join()
+
+
         except Exception as e:
             err = traceback.format_exc()
             self.log.critical(err)
@@ -496,3 +520,90 @@ class Monitor(object):
             })
             num = result['n']
             self.log.info(u'清空了 {} 条启动报告'.format(num))
+
+    def _logWarning(self):
+        """
+        遍历所有的日志，将最新的 warning 进行汇报
+        :return:
+        """
+        if arrow.now() - self.lastWarningLogTime < self.WARNING_LOG_INTERVAL:
+            # 每5分钟清查一次日志
+            time.sleep(1)
+            return
+
+        now, self.lastWarningLogTime = self.lastWarningLogTime, arrow.now()
+
+        colNames = self.logDB.collection_names()
+        for colName in colNames:
+            col = self.logDB[colName]
+            sql = {
+                'timestamp': {
+                    '$gte': now.datetime,
+                    '$lt': self.lastWarningLogTime.datetime,
+
+                },
+                'level': {
+                    '$in': ["WARNING", "ERROR", "CRITICAL"]
+                },
+            }
+            cursor = col.find(sql, {'_id': 0})
+            count = cursor.count()
+            if count == 0:
+                # 没有查询到任何 warning 以上的日志
+                continue
+
+            logs = u'{} 共 {} 条\n\n'.format(now.datetime, count)
+            for l in cursor.limit(10):
+                logs += u'==================================\n\n'
+                for k, v in l.items():
+                    if k == 'message':
+                        v = v.replace(u'\n', u'\n\n')
+                    print(v)
+                    logs += u'{}: {} \n\n'.format(k, v)
+
+            text = u'{}有异常日志'.format(colName)
+            desp = logs
+            self.sendServerChan(text, desp)
+            time.sleep(5)
+
+    def logWarning(self):
+        while self.__active:
+            try:
+                self._logWarning()
+            except:
+                err = traceback.format_exc()
+                self.log.error(err)
+
+    def initLogCollection(self):
+        """
+        初始化collection的索引
+        :return:
+        """
+        indexTimestamp = IndexModel([('timestamp', ASCENDING)], name='timestamp', background=True)
+        indexLevel = IndexModel([('level', DESCENDING)], name='level', background=True)
+        indexes = [indexTimestamp, indexLevel]
+
+        # 初始化日线的 collection
+        for colName in self.logDB.collection_names():
+            col = self.logDB[colName]
+            self._initCollectionIndex(col, indexes)
+
+    def _initCollectionIndex(self, col, indexes):
+        """
+        初始化分钟线的 collection
+        :return:
+        """
+
+        # 检查索引
+        try:
+            indexInformation = col.index_information()
+            for indexModel in indexes:
+                if indexModel.document['name'] not in indexInformation:
+                    col.create_indexes(
+                        [
+                            indexModel,
+                        ],
+                    )
+        except OperationFailure:
+            # 有索引
+            col.create_indexes(indexes)
