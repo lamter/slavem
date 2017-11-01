@@ -277,16 +277,16 @@ class Monitor(object):
 
         :return:
         """
-        self.init()
-
-        self.__active = True
-        self.threadWarningLog.start()
-
         try:
+
+            self.init()
+
+            self.__active = True
+            self.threadWarningLog.start()
+
             self._run()
             if self.threadWarningLog.isAlive():
                 self.threadWarningLog.join()
-
 
         except Exception as e:
             err = traceback.format_exc()
