@@ -291,6 +291,9 @@ class Monitor(object):
         except Exception as e:
             err = traceback.format_exc()
             self.log.critical(err)
+            text = u'slavem 异常崩溃'
+            desp = err
+            self.sendServerChan(text, desp)
             self.stop()
 
     def stop(self):
