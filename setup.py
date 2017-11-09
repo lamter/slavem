@@ -9,7 +9,7 @@ def read(fname):
         return f.read()
 
 
-__version__ = "0.0.1"
+__version__ = "0.2.0"
 
 setup(
     name='slavem',
