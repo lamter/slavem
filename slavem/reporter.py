@@ -2,6 +2,7 @@
 import pymongo
 import arrow
 import datetime
+import logging
 
 from pymongo.errors import AutoReconnect
 
@@ -36,6 +37,7 @@ class Reporter(object):
         # 心跳最少要5秒
         self.heartBeatMinInterval = datetime.timedelta(seconds=5)
 
+        self.log = logging.getLogger('root')
 
     def lanuchReport(self):
         """
@@ -59,9 +61,9 @@ class Reporter(object):
         r = report.insert_one(r)
 
         if not r.acknowledged:
-            print(u'启动汇报失败!')
+            self.log.info(u'启动汇报失败!')
         else:
-            print(u'启动汇报完成')
+            self.log.info(u'启动汇报完成')
 
     def heartBeat(self):
         """
@@ -84,7 +86,7 @@ class Reporter(object):
 
             heartbeat.find_one_and_replace(filter, r, upsert=True)
         except AutoReconnect:
-            print('report 重连失败')
+            self.log.error('report 重连失败')
 
 
     def endHeartBeat(self):

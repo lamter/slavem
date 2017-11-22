@@ -9,7 +9,7 @@ def read(fname):
         return f.read()
 
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 setup(
     name='slavem',
@@ -27,6 +27,7 @@ setup(
     },
     install_requires=read("requirements.txt").splitlines(),
     classifiers=[
+        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: MIT License'],

@@ -42,7 +42,7 @@ class Monitor(object):
         :param serverChan:
         :param loggingconf: logging 的配置 Dict()
         """
-
+        now = arrow.now()
         self.mongoSetting = {
             'host': host,
             'port': port,
@@ -61,7 +61,7 @@ class Monitor(object):
                 serverChanUrl = requests.get(url).text
                 self.serverChan[account] = serverChanUrl
         else:
-            print(u'没有配置 serverChan 的 url')
+            self.log.warning(u'没有配置 serverChan 的 url')
 
         self.mongourl = 'mongodb://{username}:{password}@{host}:{port}/{dbn}?authMechanism=SCRAM-SHA-1'.format(
             **self.mongoSetting)
@@ -70,11 +70,11 @@ class Monitor(object):
         self._inited = False
 
         # 下次查看是否已经完成任务的时间
-        self.nextWatchTime = arrow.now()
+        self.nextWatchTime = now
 
         # 下次检查心跳的时间
-        self.nextCheckHeartBeatTime = arrow.now()
-        self.nextRemoveOutdateReportTime = arrow.now()
+        self.nextCheckHeartBeatTime = now
+        self.nextRemoveOutdateReportTime = now
 
         # 关闭服务的信号
         for sig in [signal.SIGINT,  # 键盘中 Ctrl-C 组合键信号
@@ -87,7 +87,7 @@ class Monitor(object):
 
         # 定时检查日志中LEVEL >= WARNING
         self.threadWarningLog = Thread(target=self.logWarning, name='logWarning')
-        self.lastWarningLogTime = arrow.now()
+        self.lastWarningLogTime = now
 
         logMongoConf = loggingconf['handlers']['mongo']
         self.logDB = MongoClient(
@@ -117,7 +117,7 @@ class Monitor(object):
             self.log = logging.getLogger(self.name)
 
         else:
-            self.log = logging.getLogger()
+            self.log = logging.getLogger('root')
             self.log.setLevel('DEBUG')
             fmt = "%(asctime)-15s %(levelname)s %(filename)s %(lineno)d %(process)d %(message)s"
             # datefmt = "%a-%d-%b %Y %H:%M:%S"
@@ -501,11 +501,10 @@ class Monitor(object):
         :return:
         """
         for t in self.tasks:
-            print(t.toMongoDB())
+            self.log.info(u'{}'.format(t.toMongoDB()))
 
     def removeOutdateReport(self):
         """
-
         :return:
         """
         now = arrow.now()
