@@ -10,7 +10,7 @@
 ```json
 {
   "host": "localhost",
-  "port": 30020,
+  "port": 27017,
   "dbn": "slavem",
   "username": "slavem",
   "password": "slavem",

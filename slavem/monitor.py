@@ -1,10 +1,15 @@
+# coding:utf-8
 import sys
 import signal
 import logging.config
 import time
+from bson.codec_options import CodecOptions
+import traceback
+from threading import Thread
 
 import arrow
-import pymongo
+from pymongo import MongoClient, IndexModel, ASCENDING, DESCENDING
+from pymongo.errors import OperationFailure
 import datetime
 import requests
 import log4mongo.handlers
@@ -23,6 +28,8 @@ class Monitor(object):
 
     """
     name = 'slavem'
+
+    WARNING_LOG_INTERVAL = datetime.timedelta(minutes=5)
 
     def __init__(self, host='localhost', port=27017, dbn='slavem', username=None, password=None, serverChan=None,
                  loggingconf=None):
@@ -56,7 +63,6 @@ class Monitor(object):
         else:
             print(u'没有配置 serverChan 的 url')
 
-
         self.mongourl = 'mongodb://{username}:{password}@{host}:{port}/{dbn}?authMechanism=SCRAM-SHA-1'.format(
             **self.mongoSetting)
 
@@ -65,6 +71,10 @@ class Monitor(object):
 
         # 下次查看是否已经完成任务的时间
         self.nextWatchTime = arrow.now()
+
+        # 下次检查心跳的时间
+        self.nextCheckHeartBeatTime = arrow.now()
+        self.nextRemoveOutdateReportTime = arrow.now()
 
         # 关闭服务的信号
         for sig in [signal.SIGINT,  # 键盘中 Ctrl-C 组合键信号
@@ -75,6 +85,20 @@ class Monitor(object):
 
         self.authed = False
 
+        # 定时检查日志中LEVEL >= WARNING
+        self.threadWarningLog = Thread(target=self.logWarning, name='logWarning')
+        self.lastWarningLogTime = arrow.now()
+
+        logMongoConf = loggingconf['handlers']['mongo']
+        self.logDB = MongoClient(
+            logMongoConf['host'],
+            logMongoConf['port'],
+        )[logMongoConf['database_name']]
+        self.logDB.authenticate(logMongoConf['username'], logMongoConf['password'])
+
+        # 初始化日志的 collection
+        self.initLogCollection()
+
     def initLog(self, loggingconf):
         """
         初始化日志
@@ -84,7 +108,7 @@ class Monitor(object):
         if loggingconf:
             # log4mongo 的bug导致使用非admin用户时，建立会报错。
             # 这里使用注入的方式跳过会报错的代码
-            log4mongo.handlers._connection = pymongo.MongoClient(
+            log4mongo.handlers._connection = MongoClient(
                 host=loggingconf['handlers']['mongo']['host'],
                 port=loggingconf['handlers']['mongo']['port'],
             )
@@ -108,11 +132,7 @@ class Monitor(object):
             sh.setFormatter(formatter)
             sh.setLevel('WARN')
             self.log.addHandler(sh)
-            self.log.warn(u'未配置 loggingconfig')
-
-    @property
-    def db(self):
-        return self.mongoclient[self.mongoSetting['dbn']]
+            self.log.warning(u'未配置 loggingconfig')
 
     @property
     def taskCollectionName(self):
@@ -121,6 +141,10 @@ class Monitor(object):
     @property
     def reportCollectionName(self):
         return 'report'
+
+    @property
+    def heartBeatCollectionName(self):
+        return 'heartbeat'
 
     def dbConnect(self):
         """
@@ -132,16 +156,28 @@ class Monitor(object):
             self.mongoclient.server_info()
         except:
             # 重新链接
-            self.mongoclient = pymongo.MongoClient(
+            self.mongoclient = MongoClient(
                 host=self.mongoSetting['host'],
                 port=self.mongoSetting['port']
             )
+
+            db = self.mongoclient[self.mongoSetting['dbn']]
+            self.db = db
             if self.mongoSetting.get('username'):
                 # self.mongoclient = pymongo.MongoClient(self.mongourl)
-                self.authed = self.db.authenticate(
+                self.authed = db.authenticate(
                     self.mongoSetting['username'],
                     self.mongoSetting['password']
                 )
+
+            self.reportCollection = db[self.reportCollectionName].with_options(
+                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
+
+            self.tasksCollection = db[self.taskCollectionName].with_options(
+                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
+
+            self.heartBeatCollection = db[self.heartBeatCollectionName].with_options(
+                codec_options=CodecOptions(tz_aware=True, tzinfo=LOCAL_TIMEZONE))
 
     def init(self):
         """
@@ -171,11 +207,44 @@ class Monitor(object):
         self.reportWatchTime()
 
         while self.__active:
-            now = arrow.now()
-            if now < self.nextWatchTime:
-                time.sleep(1)
-                continue
+            time.sleep(1)
+            # 检查任务启动
+            self.doCheckTaskLanuch()
 
+            # 检查心跳
+            self.doCheckHeartBeat()
+
+            # 删除过期的汇报
+            self.removeOutdateReport()
+
+    def doCheckHeartBeat(self):
+        """
+
+        :return:
+        """
+        now = arrow.now()
+        if now >= self.nextCheckHeartBeatTime:
+            # 心跳间隔检查是每5分钟1次
+            self.nextCheckHeartBeatTime = now + datetime.timedelta(minutes=5)
+
+            # 检查心跳
+
+            cursor = self.heartBeatCollection.find({}, {'_id': 0})
+
+            noHeartBeat = []
+            for heartBeat in cursor:
+                if now - heartBeat['datetime'] > datetime.timedelta(minutes=1):
+                    # 心跳异常，汇报
+                    noHeartBeat.append(heartBeat)
+
+            if noHeartBeat:
+                self.log.warning(u"心跳异常{}".format(str(noHeartBeat)))
+                self.noticeHeartBeat(noHeartBeat)
+
+    def doCheckTaskLanuch(self):
+
+        now = arrow.now()
+        if now >= self.nextWatchTime:
             self.log.info(u'达到截止时间')
 
             # 检查任务
@@ -208,14 +277,23 @@ class Monitor(object):
 
         :return:
         """
-        self.init()
-
-        self.__active = True
         try:
+
+            self.init()
+
+            self.__active = True
+            self.threadWarningLog.start()
+
             self._run()
+            if self.threadWarningLog.isAlive():
+                self.threadWarningLog.join()
+
         except Exception as e:
-            print(e.message)
-            self.log.critical(e.message)
+            err = traceback.format_exc()
+            self.log.critical(err)
+            text = u'slavem 异常崩溃'
+            desp = err
+            self.sendServerChan(text, desp)
             self.stop()
 
     def stop(self):
@@ -238,9 +316,6 @@ class Monitor(object):
     def __del__(self):
         """
         实例释放时的处理
-        :param exc_type:
-        :param exc_val:
-        :param exc_tb:
         :return:
         """
         try:
@@ -256,10 +331,10 @@ class Monitor(object):
         :return:
         """
         # 读取任务
-        taskCol = self.db[self.taskCollectionName]
+        taskCol = self.tasksCollection
         taskList = []
         for t in taskCol.find():
-            if t.get('off'):
+            if not t.get('active'):
                 continue
             t.pop('_id')
             taskList.append(Task(**t))
@@ -320,7 +395,7 @@ class Monitor(object):
             }
         }
 
-        reportCol = self.db[self.reportCollectionName]
+        reportCol = self.reportCollection
         cursor = reportCol.find(sql)
 
         if __debug__:
@@ -355,7 +430,6 @@ class Monitor(object):
         """
 
         :param task: tasks.Task
-        :param report: dict()
         :return:
         """
         # 通知：任务延迟完成了
@@ -379,6 +453,14 @@ class Monitor(object):
         for k, v in task.toNotice().items():
             desp += u'\n\n{}\t:{}'.format(k, v)
 
+        self.sendServerChan(text, desp)
+
+    def noticeHeartBeat(self, noHeartBeats):
+        # 通知：未收到任务完成通知
+        text = u'心跳异常'
+        desp = u''
+        for dic in noHeartBeats:
+            desp += u'{}\n\n'.format(str(dic))
         self.sendServerChan(text, desp)
 
     def sendServerChan(self, text, desp):
@@ -409,7 +491,7 @@ class Monitor(object):
         sql = newTask.toSameTaskKV()
         dic = newTask.toMongoDB()
 
-        self.db.task.update_one(sql, {'$set': dic}, upsert=True)
+        self.tasksCollection.update_one(sql, {'$set': dic}, upsert=True)
         # self.db.task.find_one_and_update(sql, {'$set': dic}, upsert=True)
         self.log.info(u'创建了task {}'.format(str(dic)))
 
@@ -420,3 +502,111 @@ class Monitor(object):
         """
         for t in self.tasks:
             print(t.toMongoDB())
+
+    def removeOutdateReport(self):
+        """
+
+        :return:
+        """
+        now = arrow.now()
+        if now >= self.nextRemoveOutdateReportTime:
+            # 每天执行一次
+            self.nextRemoveOutdateReportTime = now + datetime.timedelta(days=1)
+            collection = self.reportCollection
+
+            # 删除7天之前的
+            deadline = now.datetime - datetime.timedelta(days=7)
+            result = collection.remove({
+                'datetime': {
+                    '$lt': deadline
+                }
+            })
+            num = result['n']
+            self.log.info(u'清空了 {} 条启动报告'.format(num))
+
+    def _logWarning(self):
+        """
+        遍历所有的日志，将最新的 warning 进行汇报
+        :return:
+        """
+        if arrow.now() - self.lastWarningLogTime < self.WARNING_LOG_INTERVAL:
+            # 每5分钟清查一次日志
+            time.sleep(1)
+            return
+
+        now, self.lastWarningLogTime = self.lastWarningLogTime, arrow.now()
+
+        colNames = self.logDB.collection_names()
+        for colName in colNames:
+            col = self.logDB[colName]
+            sql = {
+                'timestamp': {
+                    '$gte': now.datetime,
+                    '$lt': self.lastWarningLogTime.datetime,
+
+                },
+                'level': {
+                    '$in': ["WARNING", "ERROR", "CRITICAL"]
+                },
+            }
+            cursor = col.find(sql, {'_id': 0})
+            count = cursor.count()
+            if count == 0:
+                # 没有查询到任何 warning 以上的日志
+                continue
+
+            logs = u'{} 共 {} 条\n\n'.format(now.datetime, count)
+            for l in cursor.limit(10):
+                logs += u'==================================\n\n'
+                for k, v in l.items():
+                    if k == 'message':
+                        v = v.replace(u'\n', u'\n\n')
+                    print(v)
+                    logs += u'{}: {} \n\n'.format(k, v)
+
+            text = u'{}有异常日志'.format(colName)
+            desp = logs
+            self.sendServerChan(text, desp)
+            time.sleep(5)
+
+    def logWarning(self):
+        while self.__active:
+            try:
+                self._logWarning()
+            except:
+                err = traceback.format_exc()
+                self.log.error(err)
+
+    def initLogCollection(self):
+        """
+        初始化collection的索引
+        :return:
+        """
+        indexTimestamp = IndexModel([('timestamp', ASCENDING)], name='timestamp', background=True)
+        indexLevel = IndexModel([('level', DESCENDING)], name='level', background=True)
+        indexes = [indexTimestamp, indexLevel]
+
+        # 初始化日线的 collection
+        for colName in self.logDB.collection_names():
+            col = self.logDB[colName]
+            self._initCollectionIndex(col, indexes)
+
+    def _initCollectionIndex(self, col, indexes):
+        """
+        初始化分钟线的 collection
+        :return:
+        """
+
+        # 检查索引
+        try:
+            indexInformation = col.index_information()
+            for indexModel in indexes:
+                if indexModel.document['name'] not in indexInformation:
+                    col.create_indexes(
+                        [
+                            indexModel,
+                        ],
+                    )
+        except OperationFailure:
+            # 有索引
+            col.create_indexes(indexes)
