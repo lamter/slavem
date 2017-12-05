@@ -233,7 +233,7 @@ class Monitor(object):
 
             noHeartBeat = []
             for heartBeat in cursor:
-                if now - heartBeat['datetime'] > datetime.timedelta(minutes=1):
+                if now - heartBeat['datetime'] > datetime.timedelta(minutes=3):
                     # 心跳异常，汇报
                     noHeartBeat.append(heartBeat)
 
