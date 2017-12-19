@@ -559,7 +559,7 @@ class Monitor(object):
                 logs += u'==================================\n\n'
                 for k, v in l.items():
                     if k == 'message':
-                        v = v.replace(u'\n', u'\n\n')
+                        v = v.replace(u'\n\n', u'\n').replace(u'\n', u'\n\n')
                     print(v)
                     logs += u'{}: {} \n\n'.format(k, v)
 
