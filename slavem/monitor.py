@@ -238,8 +238,6 @@ class Monitor(object):
                     noHeartBeat.append(heartBeat)
             try:
                 if noHeartBeat:
-                    t = u'心跳异常\n' + u'\n'.format(*[str(h) for h in noHeartBeat])
-                    self.log.warning(t)
                     self.noticeHeartBeat(noHeartBeat)
             except Exception as e:
                 self.log.error(traceback.format_exc())
@@ -454,16 +452,14 @@ class Monitor(object):
         desp = u'当前时间\t:{}'.format(arrow.now())
 
         for k, v in task.toNotice().items():
-            desp += u'\n\n{}\t:{}'.format(k, v)
+            desp += u'\n{}\t:{}'.format(k, v)
 
         self.sendServerChan(text, desp)
 
     def noticeHeartBeat(self, noHeartBeats):
         # 通知：未收到任务完成通知
         text = u'心跳异常'
-        desp = u''
-        for dic in noHeartBeats:
-            desp += u'{}\n\n'.format(str(dic))
+        desp = u'\n'.format(*[str(h) for h in noHeartBeats])
         self.sendServerChan(text, desp)
 
     def sendServerChan(self, text, desp):
@@ -471,6 +467,7 @@ class Monitor(object):
 
         :return:
         """
+        desp = desp.replace('\n\n', '\n').replace('\n', '\n\n')
         for account, serverChanUrl in self.serverChan.items():
             url = serverChanUrl.format(text=text, desp=desp)
             while True:
