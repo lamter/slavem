@@ -236,10 +236,13 @@ class Monitor(object):
                 if now - heartBeat['datetime'] > datetime.timedelta(minutes=3):
                     # 心跳异常，汇报
                     noHeartBeat.append(heartBeat)
-
-            if noHeartBeat:
-                self.log.warning(u"心跳异常{}".format(str(noHeartBeat)))
-                self.noticeHeartBeat(noHeartBeat)
+            try:
+                if noHeartBeat:
+                    t = u'心跳异常\n' + u'\n'.format(*[str(h) for h in noHeartBeat])
+                    self.log.warning(t)
+                    self.noticeHeartBeat(noHeartBeat)
+            except Exception as e:
+                self.log.error(traceback.format_exc())
 
     def doCheckTaskLanuch(self):
 
