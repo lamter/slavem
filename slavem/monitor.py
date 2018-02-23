@@ -16,6 +16,7 @@ import log4mongo.handlers
 
 from .tasks import Task
 from .constant import *
+from .email import EMail
 
 __all__ = [
     'Monitor'
@@ -31,8 +32,8 @@ class Monitor(object):
 
     WARNING_LOG_INTERVAL = datetime.timedelta(minutes=5)
 
-    def __init__(self, host='localhost', port=27017, dbn='slavem', username=None, password=None, serverChan=None,
-                 loggingconf=None):
+    def __init__(self, email, host='localhost', port=27017, dbn='slavem', username=None, password=None, serverChan=None,
+                 loggingconf=None, ):
         """
         :param host:
         :param port:
@@ -62,6 +63,8 @@ class Monitor(object):
                 self.serverChan[account] = serverChanUrl
         else:
             self.log.warning(u'没有配置 serverChan 的 url')
+
+        self.email = EMail(**email)
 
         self.mongourl = 'mongodb://{username}:{password}@{host}:{port}/{dbn}?authMechanism=SCRAM-SHA-1'.format(
             **self.mongoSetting)
@@ -294,6 +297,7 @@ class Monitor(object):
             self.log.critical(err)
             text = u'slavem 异常崩溃'
             desp = err
+            self.sendEmail(text, desp)
             self.sendServerChan(text, desp)
             self.stop()
 
@@ -438,8 +442,8 @@ class Monitor(object):
         desp = u'当前时间:{}'.format(arrow.now())
 
         for k, v in task.toNotice().items():
-            desp += u'\n\n{}\t:{}'.format(k, v)
-
+            desp += u'\n{}\t:{}'.format(k, v)
+        self.sendEmail(text, desp)
         self.sendServerChan(text, desp)
 
     def noticeUnreport(self, task):
@@ -459,8 +463,24 @@ class Monitor(object):
     def noticeHeartBeat(self, noHeartBeats):
         # 通知：未收到任务完成通知
         text = u'心跳异常'
-        desp = u'\n'.format(*[str(h) for h in noHeartBeats])
+        desp = u''
+        for dic in noHeartBeats:
+            desp += u'{}\n'.format(str(dic))
+        self.sendEmail(text, desp)
         self.sendServerChan(text, desp)
+
+    def sendEmail(self, subject, text):
+        """
+        发送邮件通知
+        :param subject:
+        :param text:
+        :return:
+        """
+        try:
+            self.email.send(subject, text)
+        except Exception:
+            err = traceback.format_exc()
+            self.sendServerChan('slavem发送邮件错误', err)
 
     def sendServerChan(self, text, desp):
         """
@@ -565,6 +585,7 @@ class Monitor(object):
 
             text = u'{}有异常日志'.format(colName)
             desp = logs
+            self.sendEmail(text, desp)
             self.sendServerChan(text, desp)
             time.sleep(5)
 
