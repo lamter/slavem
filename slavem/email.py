@@ -37,8 +37,8 @@ class EMail(object):
         msg['To'] = _format_addr('程序通知 <%s>' % self.to_addr)
         msg['Subject'] = Header(subject, 'utf-8').encode()
 
-        server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-        server.set_debuglevel(1)
+        server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+        # server.set_debuglevel(0)
         server.login(self.from_addr, self.password)
         server.sendmail(self.from_addr, [self.to_addr], msg.as_string())
         server.quit()
