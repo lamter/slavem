@@ -408,17 +408,20 @@ class Monitor(object):
 
         # 核对启动报告
         for report in cursor:
-            for t in taskList:
-                assert isinstance(t, Task)
-                if t.isReport(report):
-                    # 完成了，刷新deadline
-                    self.log.info(u'{} 服务启动完成 {}'.format(t.name, t.lanuchTime))
-                    if t.isLate:
-                        # 迟到的启动报告, 也需要发通知
-                        self.noticeDealyReport(t)
-                    t.finishAndRefresh()
-                    taskList.remove(t)
-                    break
+            try:
+                for t in taskList:
+                    assert isinstance(t, Task)
+                    if t.isReport(report):
+                        # 完成了，刷新deadline
+                        self.log.info(u'{} 服务启动完成 {}'.format(t.name, t.lanuchTime))
+                        if t.isLate:
+                            # 迟到的启动报告, 也需要发通知
+                            self.noticeDealyReport(t)
+                        t.finishAndRefresh()
+                        taskList.remove(t)
+                        break
+            except Exception:
+                self.log.error(traceback.format_exc())
 
         # 未能准时启动的服务
         for t in taskList:
