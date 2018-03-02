@@ -64,7 +64,7 @@ class Monitor(object):
         else:
             self.log.warning(u'没有配置 serverChan 的 url')
 
-        self.email = EMail(**email)
+        self.email = EMail(serverChan=self.serverChan, **email)
 
         self.mongourl = 'mongodb://{username}:{password}@{host}:{port}/{dbn}?authMechanism=SCRAM-SHA-1'.format(
             **self.mongoSetting)
@@ -295,10 +295,10 @@ class Monitor(object):
         except Exception as e:
             err = traceback.format_exc()
             self.log.critical(err)
-            text = u'slavem 异常崩溃'
-            desp = err
-            self.sendEmail(text, desp)
-            self.sendServerChan(text, desp)
+            title = u'slavem 异常崩溃'
+            text = err
+            self.sendEmail(title, text)
+            # self.sendServerChan(title, text)
             self.stop()
 
     def stop(self):
@@ -308,6 +308,7 @@ class Monitor(object):
         """
         self.__active = False
         self.log.info(u'服务即将关闭……')
+        time.sleep(1)
 
     def shutdown(self, signalnum, frame):
         """
@@ -441,13 +442,13 @@ class Monitor(object):
         :return:
         """
         # 通知：任务延迟完成了
-        text = u'服务{name}启动迟到'.format(name=task.name)
-        desp = u'当前时间:{}'.format(arrow.now())
+        title = u'服务{name}启动迟到'.format(name=task.name)
+        text = u'当前时间:{}'.format(arrow.now())
 
         for k, v in task.toNotice().items():
-            desp += u'\n{}\t:{}'.format(k, v)
-        self.sendEmail(text, desp)
-        self.sendServerChan(text, desp)
+            text += u'\n{}\t:{}'.format(k, v)
+        self.sendEmail(title, text)
+        # self.sendServerChan(text, text)
 
     def noticeUnreport(self, task):
         """
@@ -455,13 +456,14 @@ class Monitor(object):
         :return:
         """
         # 通知：未收到任务完成通知
-        text = u'服务{name}未启动'.format(name=task.name)
-        desp = u'当前时间\t:{}'.format(arrow.now())
+        title = u'服务{name}未启动'.format(name=task.name)
+        text = u'当前时间\t:{}'.format(arrow.now())
 
         for k, v in task.toNotice().items():
-            desp += u'\n{}\t:{}'.format(k, v)
+            text += u'\n{}\t:{}'.format(k, v)
 
-        self.sendServerChan(text, desp)
+        self.sendEmail(title, text)
+        # self.sendServerChan(title, text)
 
     def noticeHeartBeat(self, noHeartBeats):
         # 通知：未收到任务完成通知
@@ -470,7 +472,7 @@ class Monitor(object):
         for dic in noHeartBeats:
             desp += u'{}\n'.format(str(dic))
         self.sendEmail(text, desp)
-        self.sendServerChan(text, desp)
+        # self.sendServerChan(text, desp)
 
     def sendEmail(self, subject, text):
         """
