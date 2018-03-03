@@ -467,11 +467,11 @@ class Monitor(object):
 
     def noticeHeartBeat(self, noHeartBeats):
         # 通知：未收到任务完成通知
-        text = u'心跳异常'
-        desp = u''
+        title = u'心跳异常'
+        text = u''
         for dic in noHeartBeats:
-            desp += u'{}\n'.format(str(dic))
-        self.sendEmail(text, desp)
+            text += u'{}\n'.format(str(dic))
+        self.sendEmail(title, text)
         # self.sendServerChan(text, desp)
 
     def sendEmail(self, subject, text):
@@ -591,7 +591,7 @@ class Monitor(object):
             text = u'{}有异常日志'.format(colName)
             desp = logs
             self.sendEmail(text, desp)
-            self.sendServerChan(text, desp)
+            # self.sendServerChan(text, desp)
             time.sleep(5)
 
     def logWarning(self):
