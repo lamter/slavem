@@ -24,10 +24,15 @@ class EMail(object):
         self.from_name = from_name
         self.from_addr = from_addr  # 发送者
         self.password = password
-        self.to_addr = to_addr
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
         self.sendingmail = None
+
+        self.to_addr = to_addr or {}  # # {'adm': 'email_addr'}
+        if self.to_addr:
+            for account, url in self.to_addr.items():
+                emailAddr = requests.get(url).text.strip('\n')
+                self.to_addr[account] = emailAddr
 
         self.serverChan = serverChan or {}  # {'adm': 'serverChanUrl'}
         if self.serverChan:
@@ -39,9 +44,9 @@ class EMail(object):
         self.sendingmail = Thread(target=self._send, args=(subject, text), daemon=True)
         self.sendingmail.start()
 
-    def _send(self, subject, text):
+    def _send(self, subject, _text):
         try:
-            text = text.replace('\r\n', '\n').replace('\n', '\r\n')
+            text = _text.replace('\r\n', '\n').replace('\n', '\r\n')
             msg = MIMEText(text, 'plain', 'utf-8')
             msg['From'] = _format_addr('%s <%s>' % (self.from_name, self.from_addr))
             msg['To'] = _format_addr('程序通知 <%s>' % self.to_addr)
@@ -50,7 +55,7 @@ class EMail(object):
             server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
             # server.set_debuglevel(0)
             server.login(self.from_addr, self.password)
-            server.sendmail(self.from_addr, [self.to_addr], msg.as_string())
+            server.sendmail(self.from_addr, list(self.to_addr.values()), msg.as_string())
             server.quit()
         except Exception:
             # 发送失败，使用微信汇报
@@ -58,6 +63,7 @@ class EMail(object):
                 self._sendToServerChan('%s 发送邮箱失败' % self.from_name, traceback.format_exc())
                 time.sleep(10)
                 self._sendToServerChan('{}发送失败内容'.format(self.from_name), 'title: {}\n{}'.format(subject, text))
+
 
     def _sendToServerChan(self, text, desp):
         desp = desp.replace('\n\n', '\n').replace('\n', '\n\n')
