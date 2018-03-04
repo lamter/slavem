@@ -28,7 +28,7 @@ class EMail(object):
         self.smtp_port = smtp_port
         self.sendingmail = None
 
-        self.to_addr = to_addr or {}  # # {'adm': 'email_addr'}
+        self.to_addr = to_addr.copy() or {}  # # {'adm': 'email_addr'}
         if self.to_addr:
             for account, url in self.to_addr.items():
                 emailAddr = requests.get(url).text.strip('\n')
@@ -79,6 +79,7 @@ class EMail(object):
                     continue
                 else:
                     # 发送成功
+                    time.sleep(1)
                     break
 
     def __del__(self):
