@@ -62,25 +62,31 @@ class EMail(object):
             if self.serverChan:
                 self._sendToServerChan('%s 发送邮箱失败' % self.from_name, traceback.format_exc())
                 time.sleep(10)
-                self._sendToServerChan('{}发送失败内容'.format(self.from_name), 'title: {}\n{}'.format(subject, text))
+                self._sendToServerChan('{}发送失败内容'.format(self.from_name), 'title: {}\n{}'.format(subject, _text))
 
 
     def _sendToServerChan(self, text, desp):
         desp = desp.replace('\n\n', '\n').replace('\n', '\n\n')
         for account, serverChanUrl in self.serverChan.items():
-            url = serverChanUrl.format(text=text, desp=desp)
-            count = 0
-            while count < 5:
-                count += 1
-                r = requests.get(url)
-                if r.status_code != 200:
-                    # 发送异常，重新发送
-                    time.sleep(10)
-                    continue
-                else:
-                    # 发送成功
-                    time.sleep(1)
-                    break
+            try:
+                url = serverChanUrl.format(text=text, desp=desp)
+                count = 0
+                while count < 5:
+                    count += 1
+                    r = requests.get(url)
+                    if r.status_code != 200:
+                        # 发送异常，重新发送
+                        time.sleep(10)
+                        continue
+                    else:
+                        # 发送成功
+                        time.sleep(1)
+                        break
+            except Exception:
+                print(serverChanUrl)
+                traceback.print_exc()
+
+
 
     def __del__(self):
         if self.sendingmail and self.sendingmail.is_alive():
