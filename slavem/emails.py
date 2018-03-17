@@ -2,6 +2,7 @@
 import traceback
 import requests
 import time
+import logging
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import parseaddr, formataddr
@@ -38,10 +39,13 @@ class EMail(object):
         if self.serverChan:
             for account, url in self.serverChan.items():
                 serverChanUrl = requests.get(url).text
+                if not serverChanUrl.startswith('https://sc.ftqq.com/'):
+                    raise ValueError('加载serverChan地址异常 {}'.format(serverChanUrl))
+
                 self.serverChan[account] = serverChanUrl
 
     def send(self, subject, text):
-        self.sendingmail = Thread(target=self._send, args=(subject, text), daemon=True)
+        self.sendingmail = Thread(target=self._send, args=(subject, text))
         self.sendingmail.start()
 
     def _send(self, subject, _text):
@@ -59,11 +63,14 @@ class EMail(object):
             server.quit()
         except Exception:
             # 发送失败，使用微信汇报
-            if self.serverChan:
-                self._sendToServerChan('%s 发送邮箱失败' % self.from_name, traceback.format_exc())
-                time.sleep(10)
-                self._sendToServerChan('{}发送失败内容'.format(self.from_name), 'title: {}\n{}'.format(subject, _text))
+            self._sendFail2ServerChan(subject, _text)
 
+    def _sendFail2ServerChan(self, subject, text):
+        logging.warning('发送邮件失败 \n {}\n{}'.format(subject, text))
+        if self.serverChan:
+            self._sendToServerChan('%s 发送邮箱失败' % self.from_name, traceback.format_exc())
+            time.sleep(10)
+            self._sendToServerChan('{}发送失败内容'.format(self.from_name), 'title: {}\n{}'.format(subject, text))
 
     def _sendToServerChan(self, text, desp):
         desp = desp.replace('\n\n', '\n').replace('\n', '\n\n')
@@ -85,9 +92,3 @@ class EMail(object):
             except Exception:
                 print(serverChanUrl)
                 traceback.print_exc()
-
-
-
-    def __del__(self):
-        if self.sendingmail and self.sendingmail.is_alive():
-            self.sendingmail.join(11)

@@ -16,7 +16,7 @@ import log4mongo.handlers
 
 from .tasks import Task
 from .constant import *
-from .email import EMail
+from .emails import EMail
 
 __all__ = [
     'Monitor'
@@ -56,15 +56,15 @@ class Monitor(object):
         self.initLog(loggingconf)
 
         # serverChan 的汇报地址
-        self.serverChan = serverChan or {}
-        if self.serverChan:
-            for account, url in self.serverChan.items():
-                serverChanUrl = requests.get(url).text
-                self.serverChan[account] = serverChanUrl
-        else:
-            self.log.warning(u'没有配置 serverChan 的 url')
+        # self.serverChan = serverChan or {}
+        # if self.serverChan:
+        #     for account, url in self.serverChan.items():
+        #         serverChanUrl = requests.get(url).text
+        #         self.serverChan[account] = serverChanUrl
+        # else:
+        #     self.log.warning(u'没有配置 serverChan 的 url')
 
-        self.email = EMail(serverChan=self.serverChan, **email)
+        self.email = EMail(serverChan=serverChan, **email)
 
         self.mongourl = 'mongodb://{username}:{password}@{host}:{port}/{dbn}?authMechanism=SCRAM-SHA-1'.format(
             **self.mongoSetting)
@@ -157,7 +157,7 @@ class Monitor(object):
         try:
             # 检查链接是否正常
             self.mongoclient.server_info()
-        except:
+        except AttributeError:
             # 重新链接
             self.mongoclient = MongoClient(
                 host=self.mongoSetting['host'],
@@ -481,29 +481,7 @@ class Monitor(object):
         :param text:
         :return:
         """
-        try:
-            self.email.send(subject, text)
-        except Exception:
-            err = traceback.format_exc()
-            self.sendServerChan('slavem发送邮件错误', err)
-
-    def sendServerChan(self, text, desp):
-        """
-
-        :return:
-        """
-        desp = desp.replace('\n\n', '\n').replace('\n', '\n\n')
-        for account, serverChanUrl in self.serverChan.items():
-            url = serverChanUrl.format(text=text, desp=desp)
-            while True:
-                r = requests.get(url)
-                if r.status_code == 200:
-                    # 发送异常，重新发送
-                    break
-                self.log.warning(u'向serverChan发送信息异常 code:{}'.format(r.status_code))
-                time.sleep(10)
-
-            self.log.info(u'向 {} 发送信息 '.format(account))
+        self.email.send(subject, text)
 
     def createTask(self, **kwargs):
         """
@@ -553,10 +531,6 @@ class Monitor(object):
         遍历所有的日志，将最新的 warning 进行汇报
         :return:
         """
-        if arrow.now() - self.lastWarningLogTime < self.WARNING_LOG_INTERVAL:
-            # 每5分钟清查一次日志
-            time.sleep(1)
-            return
 
         now, self.lastWarningLogTime = self.lastWarningLogTime, arrow.now()
 
@@ -579,14 +553,11 @@ class Monitor(object):
                 # 没有查询到任何 warning 以上的日志
                 continue
 
-            logs = u'{} 共 {} 条\n\n'.format(now.datetime, count)
+            logs = u'{} 共 {} 条\n'.format(now.datetime, count)
             for l in cursor.limit(10):
-                logs += u'==================================\n\n'
+                logs += u'==================================\n'
                 for k, v in l.items():
-                    if k == 'message':
-                        v = v.replace(u'\n\n', u'\n').replace(u'\n', u'\n\n')
-                    print(v)
-                    logs += u'{}: {} \n\n'.format(k, v)
+                    logs += u'{}: {} \n'.format(k, v)
 
             text = u'{}有异常日志'.format(colName)
             desp = logs
@@ -597,6 +568,10 @@ class Monitor(object):
     def logWarning(self):
         while self.__active:
             try:
+                if arrow.now() - self.lastWarningLogTime < self.WARNING_LOG_INTERVAL:
+                    # 每5分钟清查一次日志
+                    time.sleep(1)
+                    continue
                 self._logWarning()
             except:
                 err = traceback.format_exc()
