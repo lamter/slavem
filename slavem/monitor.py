@@ -298,7 +298,6 @@ class Monitor(object):
             title = u'slavem 异常崩溃'
             text = err
             self.sendEmail(title, text)
-            # self.sendServerChan(title, text)
             self.stop()
 
     def stop(self):
@@ -448,7 +447,6 @@ class Monitor(object):
         for k, v in task.toNotice().items():
             text += u'\n{}\t:{}'.format(k, v)
         self.sendEmail(title, text)
-        # self.sendServerChan(text, text)
 
     def noticeUnreport(self, task):
         """
@@ -463,16 +461,17 @@ class Monitor(object):
             text += u'\n{}\t:{}'.format(k, v)
 
         self.sendEmail(title, text)
-        # self.sendServerChan(title, text)
 
     def noticeHeartBeat(self, noHeartBeats):
         # 通知：未收到任务完成通知
         title = u'心跳异常'
         text = u''
         for dic in noHeartBeats:
-            text += u'{}\n'.format(str(dic))
+            text += u'=====================================\n'
+            for k, v in dic.items():
+                text += u'{}: {}\n'.format(k, v)
+
         self.sendEmail(title, text)
-        # self.sendServerChan(text, desp)
 
     def sendEmail(self, subject, text):
         """
@@ -562,7 +561,6 @@ class Monitor(object):
             text = u'{}有异常日志'.format(colName)
             desp = logs
             self.sendEmail(text, desp)
-            # self.sendServerChan(text, desp)
             time.sleep(5)
 
     def logWarning(self):
