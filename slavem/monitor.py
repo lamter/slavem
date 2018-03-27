@@ -470,7 +470,8 @@ class Monitor(object):
             text += u'=====================================\n'
             for k, v in dic.items():
                 text += u'{}: {}\n'.format(k, v)
-
+            shockSecs = arrow.now().datetime - dic['datetime']
+            text += u'secs: {}\n'.format(shockSecs)
         self.sendEmail(title, text)
 
     def sendEmail(self, subject, text):

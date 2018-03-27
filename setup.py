@@ -9,13 +9,13 @@ def read(fname):
         return f.read()
 
 
-__version__ = "0.2.3"
+__version__ = "0.3.4"
 
 setup(
     name='slavem',
     version=__version__,
     keywords='slavem',
-    description=u'监控全网服务的服务',
+    description=u'监控全网服务的服务 2018.03.26',
     long_description=read("README.md"),
 
     url='https://github.com/lamter/slavem',
