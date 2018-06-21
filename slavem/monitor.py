@@ -30,7 +30,7 @@ class Monitor(object):
     """
     name = 'slavem'
 
-    WARNING_LOG_INTERVAL = datetime.timedelta(minutes=5)
+    WARNING_LOG_INTERVAL = datetime.timedelta(minutes=2)
 
     def __init__(self, email, host='localhost', port=27017, dbn='slavem', username=None, password=None, serverChan=None,
                  loggingconf=None, ):
